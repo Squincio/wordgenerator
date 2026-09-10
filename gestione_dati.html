@@ -5,77 +5,213 @@
 <title>Generatore Programma Settimanale</title>
 <script src="xlsx.full.min.js"></script>
 <style>
-  body { font-family: Arial, sans-serif; margin: 30px; max-width: 900px; }
-  h2 { margin-top: 40px; }
-  .blocco { border: 1px solid #ccc; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-  .settimana-giorni { display: flex; gap: 8px; margin-top: 10px; }
+  :root {
+    --bg: #f2f4f3;
+    --panel: #ffffff;
+    --ink: #1c2530;
+    --ink-soft: #5c6773;
+    --line: #dde1e3;
+    --navy: #1f3346;
+    --steel: #3e6680;
+    --steel-soft: #eaf0f4;
+    --amber: #c98a3b;
+    --amber-soft: #fbf2e4;
+    --green: #3f7d4f;
+    --green-soft: #eef7f0;
+    --red: #a8402f;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    padding-bottom: 60px;
+  }
+
+  header.app-bar {
+    background: var(--navy);
+    color: #fff;
+    padding: 22px 32px;
+    margin-bottom: 28px;
+  }
+  header.app-bar h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: 0.2px; }
+  header.app-bar p { margin: 4px 0 0; font-size: 13px; color: #b7c3cd; }
+
+  main { max-width: 960px; margin: 0 auto; padding: 0 32px; }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .step-num {
+    flex: none;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--steel);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+
+  input[type="file"], input[type="date"] {
+    font-size: 13px;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+  }
+  label { color: var(--ink-soft); font-size: 13px; }
+
+  .settimana-giorni { display: flex; gap: 10px; margin-top: 14px; }
   .giorno-box {
-    flex: 1; text-align: center; padding: 10px 5px; border: 1px solid #999;
-    border-radius: 6px; background: #f4f4f4; font-size: 13px;
+    flex: 1; text-align: center; padding: 10px 6px;
+    border: 1px solid var(--line); border-left: 3px solid var(--line);
+    border-radius: 6px; background: #fafbfb; font-size: 13px; color: var(--ink-soft);
   }
-  .giorno-box.oggi { background: #fff3b0; border: 2px solid #e6b800; font-weight: bold; }
-  .sezioni-tabs { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
+  .giorno-box.oggi {
+    background: var(--amber-soft); border-left: 3px solid var(--amber);
+    color: var(--ink); font-weight: 600;
+  }
+
+  .sezioni-tabs { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
   .sezione-tab {
-    padding: 8px 14px; border: 1px solid #666; border-radius: 6px; cursor: pointer; background: #eee;
+    padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px;
+    cursor: pointer; background: #fff; font-size: 13px; color: var(--ink-soft);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
   }
-  .sezione-tab.attiva { background: #4a90d9; color: white; border-color: #4a90d9; }
-  .griglia-giorni { display: flex; gap: 8px; margin-top: 15px; }
+  .sezione-tab:hover { border-color: var(--steel); color: var(--steel); }
+  .sezione-tab.attiva { background: var(--steel); color: white; border-color: var(--steel); }
+
+  .griglia-giorni { display: flex; gap: 10px; margin-top: 18px; }
   .giorno-cella {
-    flex: 1; border: 1px solid #999; border-radius: 6px; padding: 10px; min-height: 80px; background: #fafafa;
+    flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px; min-height: 90px; background: var(--panel);
   }
-  .giorno-cella.oggi { background: #fffbe6; }
-  .giorno-cella h4 { margin: 0 0 6px 0; font-size: 13px; }
-  .attivita-item { font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-bottom: 5px; cursor: pointer; }
-  .attivita-item:hover { background: #f0f7ff; }
-  .attivita-item.compilata { border: 2px solid #4caf50; background: #f3fff3; }
-  .attivita-item .segno-ok { color: #4caf50; font-weight: bold; float: right; }
-  .nessuna { font-size: 12px; color: #999; font-style: italic; }
-  #avviso-scartate { color: #a33; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+  .giorno-cella.oggi { background: var(--amber-soft); border-color: #e9d3ac; }
+  .giorno-cella h4 {
+    margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: var(--ink-soft);
+    text-transform: none; letter-spacing: 0.2px;
+  }
+  .attivita-item {
+    font-size: 12.5px; background: #fff; border: 1px solid var(--line);
+    border-left: 3px solid var(--steel); border-radius: 5px;
+    padding: 7px 8px; margin-bottom: 6px; cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .attivita-item:hover { background: var(--steel-soft); }
+  .attivita-item.compilata { border-left: 3px solid var(--green); background: var(--green-soft); }
+  .attivita-item b { color: var(--ink); }
+  .attivita-item .segno-ok { color: var(--green); font-weight: bold; float: right; }
+  .nessuna { font-size: 12px; color: #9aa3ab; font-style: italic; }
+
+  #avviso-scartate {
+    color: var(--red); font-size: 13px; margin-top: 16px; white-space: pre-wrap;
+    background: #fdf1ef; border: 1px solid #f0d3cd; border-radius: 6px; padding: 10px 12px;
+  }
+  #avviso-scartate:empty { display: none; padding: 0; border: none; }
 
   /* ===== MODALE FORM ATTIVITÀ ===== */
   #overlayModale {
     display: none; position: fixed; top:0; left:0; width:100%; height:100%;
-    background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
+    background: rgba(20,28,36,0.55); z-index: 1000; align-items: center; justify-content: center;
   }
   #overlayModale.aperto { display: flex; }
   #modaleForm {
-    background: white; border-radius: 10px; padding: 25px; width: 550px; max-height: 85vh; overflow-y: auto;
+    background: var(--panel); border-radius: 10px; padding: 26px 28px; width: 560px;
+    max-height: 85vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.25);
   }
-  #modaleForm h3 { margin-top: 0; }
+  #modaleForm h3 {
+    margin: 0 0 18px; font-size: 16px; font-weight: 600; color: var(--navy);
+    padding-bottom: 12px; border-bottom: 1px solid var(--line);
+  }
   .campo-form { margin-bottom: 14px; }
-  .campo-form label { display:block; font-weight: bold; font-size: 13px; margin-bottom: 4px; }
-  .campo-form input[type=text], .campo-form textarea {
-    width: 100%; box-sizing: border-box; padding: 6px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
+  .campo-form label { display:block; font-weight: 600; font-size: 12.5px; margin-bottom: 5px; color: var(--ink-soft); }
+  .campo-form input[type=text], .campo-form select, .campo-form textarea {
+    width: 100%; box-sizing: border-box; padding: 7px 9px; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: #fff;
+    font-family: inherit;
+  }
+  .campo-form input[type=text]:focus, .campo-form select:focus, .campo-form textarea:focus {
+    outline: none; border-color: var(--steel); box-shadow: 0 0 0 3px var(--steel-soft);
   }
   .campo-form textarea { min-height: 60px; resize: vertical; }
-  .scelta-radio { display: flex; gap: 15px; font-size: 13px; }
-  .scelta-radio label { font-weight: normal; display:flex; align-items:center; gap:4px; }
+  .scelta-radio { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; }
+  .scelta-radio label { font-weight: normal; display:flex; align-items:center; gap:5px; color: var(--ink); }
   .riga-doppia { display:flex; gap: 15px; }
   .riga-doppia .campo-form { flex:1; }
-  .azioni-modale { display:flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-  .azioni-modale button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
-  #btnSalva { background:#4a90d9; color:white; }
-  #btnAnnulla { background:#ddd; }
+  .azioni-modale {
+    display:flex; justify-content: flex-end; gap: 10px; margin-top: 22px;
+    padding-top: 16px; border-top: 1px solid var(--line);
+  }
+  .azioni-modale button {
+    padding: 8px 18px; border-radius: 6px; border: 1px solid transparent; cursor: pointer;
+    font-size: 13px; font-weight: 500; font-family: inherit;
+  }
+  #btnSalva { background: var(--steel); color: white; }
+  #btnSalva:hover { background: var(--navy); }
+  #btnAnnulla { background: #fff; color: var(--ink-soft); border-color: var(--line); }
+  #btnAnnulla:hover { background: #f4f5f5; }
 </style>
 </head>
 <body>
 
-<h2>1. Carica il file Excel</h2>
-<input type="file" id="fileExcel" accept=".xlsx,.xls">
+<header class="app-bar">
+  <h1>Programma Settimanale — Generatore</h1>
+  <p>Ufficio Tecnico Territoriale Armamenti Terrestri · Nettuno</p>
+</header>
 
-<h2>2. Seleziona la settimana</h2>
-<div class="blocco">
-  <label>Scegli un giorno qualsiasi della settimana desiderata: </label>
-  <input type="date" id="dataRiferimento">
-  <div class="settimana-giorni" id="boxSettimana"></div>
+<main>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <div class="step-title">Carica il file Excel</div>
+    <div class="panel">
+      <input type="file" id="fileExcel" accept=".xlsx,.xls">
+    </div>
+  </div>
 </div>
 
-<h2>3. Seleziona la sezione</h2>
-<div class="sezioni-tabs" id="tabsSezioni"></div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <div class="step-title">Seleziona la settimana</div>
+    <div class="panel">
+      <label>Scegli un giorno qualsiasi della settimana desiderata</label><br>
+      <input type="date" id="dataRiferimento" style="margin-top:6px;">
+      <div class="settimana-giorni" id="boxSettimana"></div>
+    </div>
+  </div>
+</div>
 
-<div class="griglia-giorni" id="grigliaGiorni"></div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <div class="step-title">Seleziona la sezione</div>
+    <div class="sezioni-tabs" id="tabsSezioni"></div>
+    <div class="griglia-giorni" id="grigliaGiorni"></div>
+    <div id="avviso-scartate"></div>
+  </div>
+</div>
 
-<div id="avviso-scartate"></div>
+</main>
 
 <!-- ===== MODALE FORM ATTIVITÀ ===== -->
 <div id="overlayModale">
