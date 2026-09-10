@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Generatore Programma Settimanale</title>
+<script src="xlsx.full.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 30px; max-width: 900px; }
+  h2 { margin-top: 40px; }
+  .blocco { border: 1px solid #ccc; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+  .settimana-giorni { display: flex; gap: 8px; margin-top: 10px; }
+  .giorno-box {
+    flex: 1; text-align: center; padding: 10px 5px; border: 1px solid #999;
+    border-radius: 6px; background: #f4f4f4; font-size: 13px;
+  }
+  .giorno-box.oggi { background: #fff3b0; border: 2px solid #e6b800; font-weight: bold; }
+  .sezioni-tabs { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
+  .sezione-tab {
+    padding: 8px 14px; border: 1px solid #666; border-radius: 6px; cursor: pointer; background: #eee;
+  }
+  .sezione-tab.attiva { background: #4a90d9; color: white; border-color: #4a90d9; }
+  .griglia-giorni { display: flex; gap: 8px; margin-top: 15px; }
+  .giorno-cella {
+    flex: 1; border: 1px solid #999; border-radius: 6px; padding: 10px; min-height: 80px; background: #fafafa;
+  }
+  .giorno-cella.oggi { background: #fffbe6; }
+  .giorno-cella h4 { margin: 0 0 6px 0; font-size: 13px; }
+  .attivita-item { font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-bottom: 5px; }
+  .nessuna { font-size: 12px; color: #999; font-style: italic; }
+  #avviso-scartate { color: #a33; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<h2>1. Carica il file Excel</h2>
+<input type="file" id="fileExcel" accept=".xlsx,.xls">
+
+<h2>2. Seleziona la settimana</h2>
+<div class="blocco">
+  <label>Scegli un giorno qualsiasi della settimana desiderata: </label>
+  <input type="date" id="dataRiferimento">
+  <div class="settimana-giorni" id="boxSettimana"></div>
+</div>
+
+<h2>3. Seleziona la sezione</h2>
+<div class="sezioni-tabs" id="tabsSezioni"></div>
+
+<div class="griglia-giorni" id="grigliaGiorni"></div>
+
+<div id="avviso-scartate"></div>
+
+<script>
+// ===================== MAPPING SEZIONI =====================
+const MAPPING_SEZIONI = {
+  "Artiglierie Terrestri": "ARTIGLIERIE",
+  "Carri e Blindo": "CARRI_BLINDO",
+  "Mortai, Armi C/C e C/A": "MORTAI",
+  "Impianti": "IMPIANTI"
+};
+const NOMI_SEZIONI = {
+  "ARTIGLIERIE": "SEZIONE ARTIGLIERIE TERRESTRI",
+  "CARRI_BLINDO": "SEZIONE CARRI E BLINDO",
+  "MORTAI": "SEZIONE MORTAI, ARMI C/C E C/A",
+  "IMPIANTI": "SEZIONE IMPIANTI"
+};
+
+let datiRaggruppati = null;   // risultato di filtraERaggruppa
+let dateGiorniCorrenti = [];  // le 5 date (Lun-Ven) della settimana selezionata
+let sezioneSelezionata = "ARTIGLIERIE";
+
+// ===================== UTILITY DATE =====================
+function getMondayOfWeek(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = (day === 0) ? -6 : (1 - day);
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+function formatDDMM(d) {
+  return String(d.getDate()).padStart(2,'0') + "/" + String(d.getMonth()+1).padStart(2,'0');
+}
+function formatDDMMYYYY(d) {
+  return String(d.getDate()).padStart(2,'0') + "/" + String(d.getMonth()+1).padStart(2,'0') + "/" + d.getFullYear();
+}
+function stessoGiorno(d1, d2) {
+  return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
+}
+
+// ===================== PARSING E RAGGRUPPAMENTO =====================
+function parseDataDesiderata(valoreCella) {
+  if (!valoreCella) return null;
+  const match = String(valoreCella).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!match) return null;
+  const [, gg, mm, yyyy] = match;
+  const d = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(gg));
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function filtraERaggruppa(righeExcel, dateGiorniSettimana) {
+  const risultato = {};
+  Object.values(MAPPING_SEZIONI).forEach(cod => { risultato[cod] = [[],[],[],[],[]]; });
+  const scartate = [];
+
+  righeExcel.forEach(riga => {
+    const dataAttivita = parseDataDesiderata(riga["Data desiderata"]);
+    if (!dataAttivita) { scartate.push({motivo:"data non valida", riga}); return; }
+
+    const indiceGiorno = dateGiorniSettimana.findIndex(d => stessoGiorno(d, dataAttivita));
+    if (indiceGiorno === -1) return; // fuori settimana: normale, non è un "errore", si ignora silenziosamente
+
+    const valoreSezione = String(riga["Sezione interessata"] || "").trim();
+    const codiceSezione = MAPPING_SEZIONI[valoreSezione];
+    if (!codiceSezione) { scartate.push({motivo:"sezione non riconosciuta: '"+valoreSezione+"'", riga}); return; }
+
+    risultato[codiceSezione][indiceGiorno].push(riga);
+  });
+
+  return { risultato, scartate };
+}
+
+// ===================== LETTURA FILE EXCEL =====================
+let righeExcelGlobali = [];
+
+document.getElementById('fileExcel').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+    const foglio = wb.Sheets[wb.SheetNames[0]];
+    righeExcelGlobali = XLSX.utils.sheet_to_json(foglio);
+    aggiornaTutto();
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// ===================== SELETTORE SETTIMANA =====================
+const inputData = document.getElementById('dataRiferimento');
+
+// Default: lunedì della prossima settimana
+const oggi = new Date();
+const lunediProssimo = getMondayOfWeek(oggi);
+lunediProssimo.setDate(lunediProssimo.getDate() + 7);
+inputData.valueAsDate = lunediProssimo;
+
+inputData.addEventListener('change', aggiornaTutto);
+
+function calcolaGiorniSettimana() {
+  const riferimento = inputData.valueAsDate || new Date();
+  const lunedi = getMondayOfWeek(riferimento);
+  const giorni = [];
+  for (let i=0; i<5; i++) {
+    const d = new Date(lunedi);
+    d.setDate(d.getDate()+i);
+    giorni.push(d);
+  }
+  return giorni;
+}
+
+function disegnaBoxSettimana() {
+  const box = document.getElementById('boxSettimana');
+  const nomi = ["LUN","MAR","MER","GIO","VEN"];
+  const oggiReale = new Date(); oggiReale.setHours(0,0,0,0);
+  box.innerHTML = "";
+  dateGiorniCorrenti.forEach((d, i) => {
+    const div = document.createElement('div');
+    div.className = "giorno-box" + (stessoGiorno(d, oggiReale) ? " oggi" : "");
+    div.textContent = nomi[i] + " " + formatDDMM(d);
+    box.appendChild(div);
+  });
+}
+
+// ===================== TABS SEZIONI =====================
+function disegnaTabsSezioni() {
+  const cont = document.getElementById('tabsSezioni');
+  cont.innerHTML = "";
+  Object.entries(NOMI_SEZIONI).forEach(([codice, nomeLungo]) => {
+    const div = document.createElement('div');
+    div.className = "sezione-tab" + (codice === sezioneSelezionata ? " attiva" : "");
+    const count = datiRaggruppati ? datiRaggruppati.risultato[codice].reduce((a,g)=>a+g.length,0) : 0;
+    div.textContent = nomeLungo + " (" + count + ")";
+    div.onclick = function() { sezioneSelezionata = codice; aggiornaVisualizzazione(); };
+    cont.appendChild(div);
+  });
+}
+
+// ===================== GRIGLIA GIORNI PER SEZIONE SELEZIONATA =====================
+function disegnaGrigliaGiorni() {
+  const cont = document.getElementById('grigliaGiorni');
+  cont.innerHTML = "";
+  const nomi = ["LUNEDÌ","MARTEDÌ","MERCOLEDÌ","GIOVEDÌ","VENERDÌ"];
+  const oggiReale = new Date(); oggiReale.setHours(0,0,0,0);
+
+  const attivitaPerGiorno = datiRaggruppati ? datiRaggruppati.risultato[sezioneSelezionata] : [[],[],[],[],[]];
+
+  dateGiorniCorrenti.forEach((d, i) => {
+    const div = document.createElement('div');
+    div.className = "giorno-cella" + (stessoGiorno(d, oggiReale) ? " oggi" : "");
+    let html = "<h4>" + nomi[i] + " " + formatDDMM(d) + "</h4>";
+    const lista = attivitaPerGiorno[i];
+    if (lista.length === 0) {
+      html += "<div class='nessuna'>Nessuna attività</div>";
+    } else {
+      lista.forEach(a => {
+        html += "<div class='attivita-item'><b>" + (a["DITTA"]||"") + "</b><br>" + (a["Descrizione Attività"]||"") + "</div>";
+      });
+    }
+    div.innerHTML = html;
+    cont.appendChild(div);
+  });
+}
+
+function disegnaAvvisoScartate() {
+  const div = document.getElementById('avviso-scartate');
+  if (!datiRaggruppati || datiRaggruppati.scartate.length === 0) { div.textContent = ""; return; }
+  let testo = "Righe ignorate durante la lettura:\n";
+  datiRaggruppati.scartate.forEach(s => {
+    testo += "- " + s.motivo + " (Ditta: " + (s.riga["DITTA"]||"?") + ")\n";
+  });
+  div.textContent = testo;
+}
+
+// ===================== AGGIORNAMENTO GENERALE =====================
+function aggiornaTutto() {
+  dateGiorniCorrenti = calcolaGiorniSettimana();
+  if (righeExcelGlobali.length > 0) {
+    datiRaggruppati = filtraERaggruppa(righeExcelGlobali, dateGiorniCorrenti);
+  }
+  disegnaBoxSettimana();
+  aggiornaVisualizzazione();
+}
+
+function aggiornaVisualizzazione() {
+  disegnaTabsSezioni();
+  disegnaGrigliaGiorni();
+  disegnaAvvisoScartate();
+}
+
+// Inizializzazione all'avvio pagina
+dateGiorniCorrenti = calcolaGiorniSettimana();
+disegnaBoxSettimana();
+disegnaTabsSezioni();
+disegnaGrigliaGiorni();
+</script>
+
+</body>
+</html>
