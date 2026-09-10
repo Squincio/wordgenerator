@@ -1,27 +1,282 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
+<meta charset="UTF-8">
+<title>Generatore Programma Settimanale</title>
 <script src="docx.umd.js"></script>
 </head>
 <body>
-<button id="b">Genera Word</button>
+
+<h2>Genera Programma Settimanale (settimana successiva)</h2>
+<button id="genera">Genera documento Word</button>
+
 <script>
-document.getElementById('b').onclick = function() {
-  var doc = new docx.Document({
-    sections: [{
-      children: [
-        new docx.Paragraph({ text: "Prova di generazione Word" }),
-        new docx.Paragraph({ text: "Se vedi questo testo, funziona!" })
-      ]
-    }]
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  WidthType, BorderStyle, ShadingType, VerticalAlign, AlignmentType,
+  HeightRule, TabStopType, PageOrientation
+} = docx;
+
+// ===================== 1. CALCOLO DATE SETTIMANA SUCCESSIVA =====================
+function getMondayOfThisWeek(d) {
+  const date = new Date(d);
+  const day = date.getDay(); // 0=domenica..6=sabato
+  const diff = (day === 0) ? -6 : (1 - day);
+  date.setDate(date.getDate() + diff);
+  date.setHours(0,0,0,0);
+  return date;
+}
+
+function formatDDMM(d) {
+  const gg = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return gg + "/" + mm;
+}
+
+function formatDDMMYYYY(d) {
+  const gg = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return gg + "/" + mm + "/" + yyyy;
+}
+
+const oggi = new Date();
+const lunediQuestaSettimana = getMondayOfThisWeek(oggi);
+const lunediProssimo = new Date(lunediQuestaSettimana);
+lunediProssimo.setDate(lunediProssimo.getDate() + 7);
+
+const giorniSettimana = ["LUNEDÌ", "MARTEDÌ", "MERCOLEDÌ", "GIOVEDÌ", "VENERDÌ"];
+const dateGiorni = [];
+for (let i = 0; i < 5; i++) {
+  const d = new Date(lunediProssimo);
+  d.setDate(d.getDate() + i);
+  dateGiorni.push(d);
+}
+const venerdiProssimo = dateGiorni[4];
+
+// ===================== 2. COSTANTI DI LAYOUT (dal template originale) =====================
+const LARGHEZZE_COLONNE = [568, 425, 2069, 2070, 2098, 1985, 2126]; // in dxa (twips)
+const GRIGIO_CHIARO = { type: ShadingType.PERCENT_10, color: "auto", fill: "auto" };
+
+const BORDO = {
+  top:    { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+  bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+  left:   { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+  right:  { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+};
+
+// ===================== 3. FUNZIONI DI SUPPORTO PER CREARE CELLE =====================
+function cellaLabel(testo, colSpan, rowSpanInfo, larghezza) {
+  // Cella "etichetta" (sezione, intestazione, ENTI ESTERNI...) - sfondo grigio, grassetto, centrata
+  return new TableCell({
+    columnSpan: colSpan || 1,
+    verticalMerge: rowSpanInfo,
+    verticalAlign: VerticalAlign.CENTER,
+    shading: GRIGIO_CHIARO,
+    borders: BORDO,
+    width: { size: larghezza, type: WidthType.DXA },
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: testo.split("\n").map((riga, idx, arr) =>
+          new TextRun({ text: riga, bold: true, size: 12, font: "Times New Roman", break: idx > 0 ? 1 : 0 })
+        )
+      })
+    ]
   });
-  docx.Packer.toBlob(doc).then(function(blob) {
-    var a = document.createElement('a');
+}
+
+function cellaGiorno(nomeGiorno, dataGiorno, larghezza) {
+  // Cella intestazione giorno: nome giorno grassetto+sottolineato, data sotto NON in grassetto
+  return new TableCell({
+    verticalAlign: VerticalAlign.CENTER,
+    shading: GRIGIO_CHIARO,
+    borders: BORDO,
+    width: { size: larghezza, type: WidthType.DXA },
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({ text: nomeGiorno, bold: true, underline: {}, size: 12, font: "Times New Roman" }),
+          new TextRun({ text: dataGiorno, bold: false, size: 12, font: "Times New Roman", break: 1 })
+        ]
+      })
+    ]
+  });
+}
+
+function cellaDato(larghezza, colSpan) {
+  // Cella dati vuota (verrà riempita nel passo successivo) - grassetto per coerenza con il resto della tabella
+  return new TableCell({
+    columnSpan: colSpan || 1,
+    borders: BORDO,
+    width: { size: larghezza, type: WidthType.DXA },
+    children: [ new Paragraph({ children: [ new TextRun({ text: "", bold: true, size: 12, font: "Times New Roman" }) ] }) ]
+  });
+}
+
+function altezzaRiga(dxa) {
+  return { value: dxa, rule: HeightRule.ATLEAST };
+}
+
+// ===================== 4. COSTRUZIONE TABELLA =====================
+const righeSezioni = [
+  { nome: "SEZIONE ARTIGLIERIE TERRESTRI", altezza: 3964 },
+  { nome: "SEZIONE CARRI E BLINDO", altezza: 327 },
+  { nome: "SEZIONE MORTAI, ARMI C/C E C/A", altezza: 121 },
+  { nome: "NEA", altezza: 121 },
+  { nome: "SEZIONE\nIMPIANTI", altezza: 123 },
+  { nome: "SERVIZIO POLIGONO DI SANTA SEVERA", altezza: 123 },
+];
+
+// Larghezza colonna 0+1 unite (per le etichette)
+const LARGHEZZA_LABEL = LARGHEZZE_COLONNE[0] + LARGHEZZE_COLONNE[1]; // 993
+// Larghezze delle 5 colonne giorno
+const LARGHEZZE_GIORNI = LARGHEZZE_COLONNE.slice(2); // [2069, 2070, 2098, 1985, 2126]
+
+// Riga 0: intestazione (vuota + 5 giorni con date)
+const rigaIntestazione = new TableRow({
+  height: altezzaRiga(309),
+  children: [
+    cellaLabel("", 2, undefined, LARGHEZZA_LABEL),
+    ...giorniSettimana.map((nomeGiorno, i) =>
+      cellaGiorno(nomeGiorno, formatDDMM(dateGiorni[i]), LARGHEZZE_GIORNI[i])
+    )
+  ]
+});
+
+// Righe sezioni (etichetta unita su 2 colonne + 5 celle dati vuote)
+const righeSezioniTabella = righeSezioni.map(sez =>
+  new TableRow({
+    height: altezzaRiga(sez.altezza),
+    children: [
+      cellaLabel(sez.nome, 2, undefined, LARGHEZZA_LABEL),
+      ...LARGHEZZE_GIORNI.map(l => cellaDato(l))
+    ]
+  })
+);
+
+// Righe "ENTI ESTERNI" (colonna 0 unita verticalmente su 2 righe, colonna 1 = Sede/Valmontorio)
+const rigaEntiSede = new TableRow({
+  height: altezzaRiga(392),
+  children: [
+    cellaLabel("ENTI ESTERNI", 1, "restart", LARGHEZZE_COLONNE[0]),
+    cellaLabel("Sede", 1, undefined, LARGHEZZE_COLONNE[1]),
+    ...LARGHEZZE_GIORNI.map(l => cellaDato(l))
+  ]
+});
+
+const rigaEntiValmontorio = new TableRow({
+  height: altezzaRiga(392),
+  children: [
+    cellaLabel("", 1, "continue", LARGHEZZE_COLONNE[0]),
+    cellaLabel("Valmontorio", 1, undefined, LARGHEZZE_COLONNE[1]),
+    ...LARGHEZZE_GIORNI.map(l => cellaDato(l))
+  ]
+});
+
+const tabella = new Table({
+  width: { size: LARGHEZZE_COLONNE.reduce((a,b) => a+b, 0), type: WidthType.DXA },
+  columnWidths: LARGHEZZE_COLONNE,
+  indent: { size: -289, type: WidthType.DXA },
+  rows: [rigaIntestazione, ...righeSezioniTabella, rigaEntiSede, rigaEntiValmontorio]
+});
+
+// ===================== 5. TESTO FISSO (titolo, sottotitolo, firme) =====================
+const spazioIniziale = new Paragraph({ text: "" });
+
+const titolo = new Paragraph({
+  alignment: AlignmentType.CENTER,
+  children: [ new TextRun({ text: "UFFICIO TECNICO TERRITORIALE ARMAMENTI TERRESTRI - NETTUNO", bold: true, size: 20, font: "Times New Roman" }) ]
+});
+
+const sottotitolo = new Paragraph({
+  alignment: AlignmentType.CENTER,
+  spacing: { after: 200 },
+  children: [ new TextRun({
+    text: "PROGRAMMA SETTIMANALE DEI TIRI E LAVORI DAL " + formatDDMMYYYY(lunediProssimo) + " AL " + formatDDMMYYYY(venerdiProssimo),
+    bold: true, size: 20, font: "Times New Roman"
+  }) ]
+});
+
+const spazioDopoTabella = new Paragraph({ text: "", spacing: { before: 200 } });
+
+const rigaFirmeTitoli = new Paragraph({
+  tabStops: [
+    { type: TabStopType.CENTER, position: 2694 },
+    { type: TabStopType.CENTER, position: 8080 }
+  ],
+  children: [
+    new TextRun({ text: "\tIL CAPO SERVIZIO SUPPORTO TECNICO POLIGONO\tIL CAPO SERVIZIO POLIGONO", size: 16, font: "Times New Roman" })
+  ]
+});
+
+const rigaFirmeNomi = new Paragraph({
+  tabStops: [
+    { type: TabStopType.CENTER, position: 2694 },
+    { type: TabStopType.CENTER, position: 8080 }
+  ],
+  children: [
+    new TextRun({ text: "\tTen. Col. g. (gua) Francesco IODICE\tMagg. ing. Andrea DI MARIO", size: 16, font: "Times New Roman" })
+  ]
+});
+
+const spazioVisto = new Paragraph({ text: "", spacing: { before: 300 } });
+
+const rigaVisto = new Paragraph({
+  alignment: AlignmentType.CENTER,
+  children: [ new TextRun({ text: "VISTO, si approva:", size: 16, font: "Times New Roman" }) ]
+});
+
+const rigaViceDirettore = new Paragraph({
+  alignment: AlignmentType.CENTER,
+  children: [ new TextRun({ text: "IL VICE DIRETTORE", size: 16, font: "Times New Roman" }) ]
+});
+
+const rigaNomeVice = new Paragraph({
+  alignment: AlignmentType.CENTER,
+  children: [ new TextRun({ text: "Ten. Col. ing. Francesco RUTIGLIANO", size: 16, font: "Times New Roman" }) ]
+});
+
+// ===================== 6. ASSEMBLAGGIO DOCUMENTO =====================
+const doc = new Document({
+  sections: [{
+    properties: {
+      page: {
+        size: { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT },
+        margin: { top: 180, bottom: 180, left: 567, right: 566 }
+      }
+    },
+    children: [
+      spazioIniziale,
+      titolo,
+      sottotitolo,
+      tabella,
+      spazioDopoTabella,
+      rigaFirmeTitoli,
+      rigaFirmeNomi,
+      spazioVisto,
+      rigaVisto,
+      rigaViceDirettore,
+      rigaNomeVice
+    ]
+  }]
+});
+
+// ===================== 7. GENERAZIONE E DOWNLOAD =====================
+document.getElementById('genera').onclick = function() {
+  Packer.toBlob(doc).then(function(blob) {
+    const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = "prova.docx";
+    const nomeFile = "Settimanale_dal_" + formatDDMMYYYY(lunediProssimo).replace(/\//g,"-") +
+                      "_al_" + formatDDMMYYYY(venerdiProssimo).replace(/\//g,"-") + ".docx";
+    a.download = nomeFile;
     a.click();
+  }).catch(function(err) {
+    alert("Errore nella generazione: " + err.message);
   });
 };
 </script>
+
 </body>
 </html>
