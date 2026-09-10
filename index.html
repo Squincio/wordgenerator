@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/index.umd.js"></script>
+</head>
+<body>
+<button id="b">Genera Word</button>
+<script>
+document.getElementById('b').onclick = function() {
+  var doc = new docx.Document({
+    sections: [{
+      children: [
+        new docx.Paragraph({ text: "Prova di generazione Word" }),
+        new docx.Paragraph({ text: "Se vedi questo testo, funziona!" })
+      ]
+    }]
+  });
+  docx.Packer.toBlob(doc).then(function(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "prova.docx";
+    a.click();
+  });
+};
+</script>
+</body>
+</html>
