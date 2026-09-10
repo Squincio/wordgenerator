@@ -84,13 +84,29 @@
 
     <div class="riga-doppia">
       <div class="campo-form">
-        <label>Titolo</label>
-        <input type="text" id="campoTitolo">
+        <label>Tipologia</label>
+        <select id="campoTipologia">
+          <option value="CT">CT</option>
+          <option value="AD">AD</option>
+        </select>
       </div>
       <div class="campo-form">
         <label>Ditta</label>
-        <input type="text" id="campoDitta">
+        <select id="campoDittaSelect">
+          <option value="Leonardo s.p.a.">Leonardo s.p.a.</option>
+          <option value="KNDS Ammo Italy S.p.A.">KNDS Ammo Italy S.p.A.</option>
+          <option value="ELT">ELT</option>
+          <option value="MES">MES</option>
+          <option value="Rheinmetall Italia S.p.A:">Rheinmetall Italia S.p.A:</option>
+          <option value="altro">Altro (specifica)...</option>
+        </select>
+        <input type="text" id="campoDittaAltro" placeholder="Nome ditta" style="display:none; margin-top:6px;">
       </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Titolo</label>
+      <input type="text" id="campoTitolo">
     </div>
 
     <div class="campo-form">
@@ -395,8 +411,9 @@ function apriModale(sezione, giornoIndex, attivitaIndex, rigaExcel) {
 
   if (salvatoPrecedente) {
     // Ricarico i valori salvati in precedenza
+    document.getElementById('campoTipologia').value = salvatoPrecedente.tipologia;
+    impostaDitta(salvatoPrecedente.ditta);
     document.getElementById('campoTitolo').value = salvatoPrecedente.titolo;
-    document.getElementById('campoDitta').value = salvatoPrecedente.ditta;
     document.getElementById('campoDescrizione').value = salvatoPrecedente.descrizione;
     document.getElementById('campoBtr').value = salvatoPrecedente.btr;
     impostaRadio('squadraEmergenze', salvatoPrecedente.squadraEmergenze);
@@ -412,9 +429,11 @@ function apriModale(sezione, giornoIndex, attivitaIndex, rigaExcel) {
     impostaRadio('sgomberoCura', salvatoPrecedente.sgomberoCura);
   } else {
     // Precompilo dai dati Excel, resto vuoto/default
-    document.getElementById('campoTitolo').value = rigaExcel["Tipologia"] || "";
-    document.getElementById('campoDitta').value = rigaExcel["DITTA"] || "";
-    document.getElementById('campoDescrizione').value = rigaExcel["Descrizione Attività"] || "";
+    const tipologiaExcel = normalizzaSpazi(rigaExcel["Tipologia"]).toUpperCase();
+    document.getElementById('campoTipologia').value = (tipologiaExcel === "AD") ? "AD" : "CT";
+    impostaDitta(rigaExcel["DITTA"]);
+    document.getElementById('campoTitolo').value = rigaExcel["Descrizione Attività"] || "";
+    document.getElementById('campoDescrizione').value = "";
     document.getElementById('campoBtr').value = rigaExcel["Btr/Linea di Tiro/commenti"] || "";
     impostaRadio('squadraEmergenze', null);
     impostaRadio('repArtificieri', null);
@@ -440,6 +459,40 @@ function leggiRadio(nome) {
   return scelto ? scelto.value : null;
 }
 
+const DITTE_FISSE = ["Leonardo s.p.a.", "KNDS Ammo Italy S.p.A.", "ELT", "MES", "Rheinmetall Italia S.p.A:"];
+
+function normalizzaSpazi(testo) {
+  return String(testo || "").replace(/\s+/g, ' ').trim();
+}
+
+function impostaDitta(valoreDitta) {
+  const valoreNormalizzato = normalizzaSpazi(valoreDitta);
+  const corrispondenza = DITTE_FISSE.find(d => normalizzaSpazi(d) === valoreNormalizzato);
+  const select = document.getElementById('campoDittaSelect');
+  const inputAltro = document.getElementById('campoDittaAltro');
+  if (corrispondenza) {
+    select.value = corrispondenza;
+    inputAltro.style.display = "none";
+    inputAltro.value = "";
+  } else {
+    select.value = "altro";
+    inputAltro.style.display = "block";
+    inputAltro.value = valoreDitta || "";
+  }
+}
+
+function leggiDitta() {
+  const select = document.getElementById('campoDittaSelect');
+  if (select.value === "altro") {
+    return document.getElementById('campoDittaAltro').value;
+  }
+  return select.value;
+}
+
+document.getElementById('campoDittaSelect').addEventListener('change', function() {
+  document.getElementById('campoDittaAltro').style.display = (this.value === "altro") ? "block" : "none";
+});
+
 function chiudiModale() {
   document.getElementById('overlayModale').classList.remove('aperto');
   chiaveAttivitaAperta = null;
@@ -450,8 +503,9 @@ document.getElementById('btnAnnulla').onclick = chiudiModale;
 document.getElementById('btnSalva').onclick = function() {
   if (!chiaveAttivitaAperta) return;
   formSalvati[chiaveAttivitaAperta] = {
+    tipologia: document.getElementById('campoTipologia').value,
+    ditta: leggiDitta(),
     titolo: document.getElementById('campoTitolo').value,
-    ditta: document.getElementById('campoDitta').value,
     descrizione: document.getElementById('campoDescrizione').value,
     btr: document.getElementById('campoBtr').value,
     squadraEmergenze: leggiRadio('squadraEmergenze'),
