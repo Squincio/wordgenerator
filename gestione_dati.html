@@ -25,9 +25,37 @@
   }
   .giorno-cella.oggi { background: #fffbe6; }
   .giorno-cella h4 { margin: 0 0 6px 0; font-size: 13px; }
-  .attivita-item { font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-bottom: 5px; }
+  .attivita-item { font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 5px; margin-bottom: 5px; cursor: pointer; }
+  .attivita-item:hover { background: #f0f7ff; }
+  .attivita-item.compilata { border: 2px solid #4caf50; background: #f3fff3; }
+  .attivita-item .segno-ok { color: #4caf50; font-weight: bold; float: right; }
   .nessuna { font-size: 12px; color: #999; font-style: italic; }
   #avviso-scartate { color: #a33; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+
+  /* ===== MODALE FORM ATTIVITÀ ===== */
+  #overlayModale {
+    display: none; position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
+  }
+  #overlayModale.aperto { display: flex; }
+  #modaleForm {
+    background: white; border-radius: 10px; padding: 25px; width: 550px; max-height: 85vh; overflow-y: auto;
+  }
+  #modaleForm h3 { margin-top: 0; }
+  .campo-form { margin-bottom: 14px; }
+  .campo-form label { display:block; font-weight: bold; font-size: 13px; margin-bottom: 4px; }
+  .campo-form input[type=text], .campo-form textarea {
+    width: 100%; box-sizing: border-box; padding: 6px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px;
+  }
+  .campo-form textarea { min-height: 60px; resize: vertical; }
+  .scelta-radio { display: flex; gap: 15px; font-size: 13px; }
+  .scelta-radio label { font-weight: normal; display:flex; align-items:center; gap:4px; }
+  .riga-doppia { display:flex; gap: 15px; }
+  .riga-doppia .campo-form { flex:1; }
+  .azioni-modale { display:flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .azioni-modale button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
+  #btnSalva { background:#4a90d9; color:white; }
+  #btnAnnulla { background:#ddd; }
 </style>
 </head>
 <body>
@@ -49,6 +77,110 @@
 
 <div id="avviso-scartate"></div>
 
+<!-- ===== MODALE FORM ATTIVITÀ ===== -->
+<div id="overlayModale">
+  <div id="modaleForm">
+    <h3>Dettaglio attività</h3>
+
+    <div class="riga-doppia">
+      <div class="campo-form">
+        <label>Titolo</label>
+        <input type="text" id="campoTitolo">
+      </div>
+      <div class="campo-form">
+        <label>Ditta</label>
+        <input type="text" id="campoDitta">
+      </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Descrizione Attività</label>
+      <textarea id="campoDescrizione"></textarea>
+    </div>
+
+    <div class="campo-form">
+      <label>Btr / Linea di Tiro</label>
+      <input type="text" id="campoBtr">
+    </div>
+
+    <div class="campo-form">
+      <label>Squadra emergenze</label>
+      <div class="scelta-radio">
+        <label><input type="radio" name="squadraEmergenze" value="disposizione"> A disposizione</label>
+        <label><input type="radio" name="squadraEmergenze" value="non_necessaria"> Non necessaria</label>
+      </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Rep. Artificieri</label>
+      <div class="scelta-radio">
+        <label><input type="radio" name="repArtificieri" value="in_btr"> In btr</label>
+        <label><input type="radio" name="repArtificieri" value="non_presente"> Non presente</label>
+      </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Rep. Armamento</label>
+      <div class="scelta-radio">
+        <label><input type="radio" name="repArmamento" value="in_btr"> In btr</label>
+        <label><input type="radio" name="repArmamento" value="non_presente"> Non presente</label>
+      </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Rep. Osservatori</label>
+      <div class="scelta-radio">
+        <label><input type="radio" name="repOsservatori" value="in_btr"> In btr</label>
+        <label><input type="radio" name="repOsservatori" value="non_presente"> Non presente</label>
+      </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Sez. Metrobalistica</label>
+      <div class="scelta-radio">
+        <label><input type="radio" name="sezMetrobalistica" value="in_btr"> In btr</label>
+        <label><input type="radio" name="sezMetrobalistica" value="non_presente"> Non presente</label>
+      </div>
+    </div>
+
+    <div class="riga-doppia">
+      <div class="campo-form">
+        <label>POS</label>
+        <input type="text" id="campoPos">
+      </div>
+      <div class="campo-form">
+        <label>SIC</label>
+        <input type="text" id="campoSic">
+      </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Assetti sanitari</label>
+      <div class="scelta-radio">
+        <label><input type="radio" name="assettiSanitari" value="ditta"> A cura Ditta</label>
+        <label><input type="radio" name="assettiSanitari" value="no"> No</label>
+      </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Sgombero</label>
+      <div class="scelta-radio">
+        <label><input type="checkbox" id="sgomberoTerra"> Terra</label>
+        <label><input type="checkbox" id="sgomberoMare"> Mare</label>
+      </div>
+      <div class="scelta-radio" style="margin-top:8px;">
+        <label><input type="radio" name="sgomberoCura" value="ditta"> A cura Ditta</label>
+        <label><input type="radio" name="sgomberoCura" value="no"> No</label>
+      </div>
+    </div>
+
+    <div class="azioni-modale">
+      <button id="btnAnnulla">Annulla</button>
+      <button id="btnSalva">Salva</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ===================== MAPPING SEZIONI =====================
 const MAPPING_SEZIONI = {
@@ -69,6 +201,12 @@ const NOMI_SEZIONI = {
 let datiRaggruppati = null;   // risultato di filtraERaggruppa
 let dateGiorniCorrenti = [];  // le 5 date (Lun-Ven) della settimana selezionata
 let sezioneSelezionata = "ARTIGLIERIE";
+let formSalvati = {};         // chiave univoca -> dati compilati dal form
+let chiaveAttivitaAperta = null; // chiave dell'attività attualmente aperta nella modale
+
+function chiaveUnivoca(sezione, giornoIndex, attivitaIndex) {
+  return sezione + "_" + giornoIndex + "_" + attivitaIndex;
+}
 
 // ===================== UTILITY DATE =====================
 function getMondayOfWeek(d) {
@@ -220,12 +358,20 @@ function disegnaGrigliaGiorni() {
     const lista = attivitaPerGiorno[i];
     if (lista.length === 0) {
       html += "<div class='nessuna'>Nessuna attività</div>";
+      div.innerHTML = html;
     } else {
-      lista.forEach(a => {
-        html += "<div class='attivita-item'><b>" + (a["DITTA"]||"") + "</b><br>" + (a["Descrizione Attività"]||"") + "</div>";
+      div.innerHTML = html;
+      lista.forEach((a, indiceAttivita) => {
+        const chiave = chiaveUnivoca(sezioneSelezionata, i, indiceAttivita);
+        const compilata = !!formSalvati[chiave];
+        const itemDiv = document.createElement('div');
+        itemDiv.className = "attivita-item" + (compilata ? " compilata" : "");
+        itemDiv.innerHTML = "<b>" + (a["DITTA"]||"") + "</b>" + (compilata ? "<span class='segno-ok'>&#10003;</span>" : "") +
+                             "<br>" + (a["Descrizione Attività"]||"");
+        itemDiv.onclick = function() { apriModale(sezioneSelezionata, i, indiceAttivita, a); };
+        div.appendChild(itemDiv);
       });
     }
-    div.innerHTML = html;
     cont.appendChild(div);
   });
 }
@@ -239,6 +385,90 @@ function disegnaAvvisoScartate() {
   });
   div.textContent = testo;
 }
+
+// ===================== GESTIONE MODALE FORM =====================
+function apriModale(sezione, giornoIndex, attivitaIndex, rigaExcel) {
+  chiaveAttivitaAperta = chiaveUnivoca(sezione, giornoIndex, attivitaIndex);
+  const overlay = document.getElementById('overlayModale');
+
+  const salvatoPrecedente = formSalvati[chiaveAttivitaAperta];
+
+  if (salvatoPrecedente) {
+    // Ricarico i valori salvati in precedenza
+    document.getElementById('campoTitolo').value = salvatoPrecedente.titolo;
+    document.getElementById('campoDitta').value = salvatoPrecedente.ditta;
+    document.getElementById('campoDescrizione').value = salvatoPrecedente.descrizione;
+    document.getElementById('campoBtr').value = salvatoPrecedente.btr;
+    impostaRadio('squadraEmergenze', salvatoPrecedente.squadraEmergenze);
+    impostaRadio('repArtificieri', salvatoPrecedente.repArtificieri);
+    impostaRadio('repArmamento', salvatoPrecedente.repArmamento);
+    impostaRadio('repOsservatori', salvatoPrecedente.repOsservatori);
+    impostaRadio('sezMetrobalistica', salvatoPrecedente.sezMetrobalistica);
+    document.getElementById('campoPos').value = salvatoPrecedente.pos;
+    document.getElementById('campoSic').value = salvatoPrecedente.sic;
+    impostaRadio('assettiSanitari', salvatoPrecedente.assettiSanitari);
+    document.getElementById('sgomberoTerra').checked = salvatoPrecedente.sgomberoTerra;
+    document.getElementById('sgomberoMare').checked = salvatoPrecedente.sgomberoMare;
+    impostaRadio('sgomberoCura', salvatoPrecedente.sgomberoCura);
+  } else {
+    // Precompilo dai dati Excel, resto vuoto/default
+    document.getElementById('campoTitolo').value = rigaExcel["Tipologia"] || "";
+    document.getElementById('campoDitta').value = rigaExcel["DITTA"] || "";
+    document.getElementById('campoDescrizione').value = rigaExcel["Descrizione Attività"] || "";
+    document.getElementById('campoBtr').value = rigaExcel["Btr/Linea di Tiro/commenti"] || "";
+    impostaRadio('squadraEmergenze', null);
+    impostaRadio('repArtificieri', null);
+    impostaRadio('repArmamento', null);
+    impostaRadio('repOsservatori', null);
+    impostaRadio('sezMetrobalistica', null);
+    document.getElementById('campoPos').value = "";
+    document.getElementById('campoSic').value = "";
+    impostaRadio('assettiSanitari', null);
+    document.getElementById('sgomberoTerra').checked = false;
+    document.getElementById('sgomberoMare').checked = false;
+    impostaRadio('sgomberoCura', null);
+  }
+
+  overlay.classList.add('aperto');
+}
+
+function impostaRadio(nome, valore) {
+  document.getElementsByName(nome).forEach(r => { r.checked = (r.value === valore); });
+}
+function leggiRadio(nome) {
+  const scelto = Array.from(document.getElementsByName(nome)).find(r => r.checked);
+  return scelto ? scelto.value : null;
+}
+
+function chiudiModale() {
+  document.getElementById('overlayModale').classList.remove('aperto');
+  chiaveAttivitaAperta = null;
+}
+
+document.getElementById('btnAnnulla').onclick = chiudiModale;
+
+document.getElementById('btnSalva').onclick = function() {
+  if (!chiaveAttivitaAperta) return;
+  formSalvati[chiaveAttivitaAperta] = {
+    titolo: document.getElementById('campoTitolo').value,
+    ditta: document.getElementById('campoDitta').value,
+    descrizione: document.getElementById('campoDescrizione').value,
+    btr: document.getElementById('campoBtr').value,
+    squadraEmergenze: leggiRadio('squadraEmergenze'),
+    repArtificieri: leggiRadio('repArtificieri'),
+    repArmamento: leggiRadio('repArmamento'),
+    repOsservatori: leggiRadio('repOsservatori'),
+    sezMetrobalistica: leggiRadio('sezMetrobalistica'),
+    pos: document.getElementById('campoPos').value,
+    sic: document.getElementById('campoSic').value,
+    assettiSanitari: leggiRadio('assettiSanitari'),
+    sgomberoTerra: document.getElementById('sgomberoTerra').checked,
+    sgomberoMare: document.getElementById('sgomberoMare').checked,
+    sgomberoCura: leggiRadio('sgomberoCura')
+  };
+  chiudiModale();
+  disegnaGrigliaGiorni(); // per aggiornare il segno "compilata"
+};
 
 // ===================== AGGIORNAMENTO GENERALE =====================
 function aggiornaTutto() {
