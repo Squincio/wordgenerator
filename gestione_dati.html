@@ -90,6 +90,22 @@ function stessoGiorno(d1, d2) {
 // ===================== PARSING E RAGGRUPPAMENTO =====================
 function parseDataDesiderata(valoreCella) {
   if (!valoreCella) return null;
+
+  // Caso 1: è già un oggetto Date (Excel con vera data, letta con cellDates:true)
+  if (valoreCella instanceof Date) {
+    const d = new Date(valoreCella);
+    d.setHours(0,0,0,0);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Caso 2: è un numero seriale Excel (data letta senza cellDates, fallback di sicurezza)
+  if (typeof valoreCella === "number") {
+    const d = new Date(Math.round((valoreCella - 25569) * 86400 * 1000));
+    d.setHours(0,0,0,0);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Caso 3: è testo tipo "31/08/2026 - lunedì"
   const match = String(valoreCella).match(/(\d{2})\/(\d{2})\/(\d{4})/);
   if (!match) return null;
   const [, gg, mm, yyyy] = match;
@@ -128,7 +144,7 @@ document.getElementById('fileExcel').addEventListener('change', function(e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(ev) {
-    const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+    const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array', cellDates:true});
     const foglio = wb.Sheets[wb.SheetNames[0]];
     righeExcelGlobali = XLSX.utils.sheet_to_json(foglio);
     aggiornaTutto();
