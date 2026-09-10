@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Generatore Programma Settimanale</title>
 <script src="xlsx.full.min.js"></script>
+<script src="docx.umd.js"></script>
 <style>
   :root {
     --bg: #f2f4f3;
@@ -168,6 +169,18 @@
   #btnSalva:hover { background: var(--navy); }
   #btnAnnulla { background: #fff; color: var(--ink-soft); border-color: var(--line); }
   #btnAnnulla:hover { background: #f4f5f5; }
+
+  #btnGenera {
+    padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer;
+    font-size: 14px; font-weight: 600; font-family: inherit;
+    background: var(--steel); color: white;
+  }
+  #btnGenera:hover { background: var(--navy); }
+  #avvisoNonCompilate {
+    margin-top: 14px; font-size: 13px; color: #8a6116; white-space: pre-wrap;
+    background: var(--amber-soft); border: 1px solid #e9d3ac; border-radius: 6px; padding: 10px 12px;
+  }
+  #avvisoNonCompilate:empty { display: none; padding: 0; border: none; margin-top: 0; }
 </style>
 </head>
 <body>
@@ -208,6 +221,17 @@
     <div class="sezioni-tabs" id="tabsSezioni"></div>
     <div class="griglia-giorni" id="grigliaGiorni"></div>
     <div id="avviso-scartate"></div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <div class="step-title">Genera il documento Word</div>
+    <div class="panel">
+      <button id="btnGenera">Genera documento Word</button>
+      <div id="avvisoNonCompilate"></div>
+    </div>
   </div>
 </div>
 
@@ -681,6 +705,298 @@ dateGiorniCorrenti = calcolaGiorniSettimana();
 disegnaBoxSettimana();
 disegnaTabsSezioni();
 disegnaGrigliaGiorni();
+
+// ===================== GENERAZIONE DOCUMENTO WORD =====================
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  WidthType, BorderStyle, ShadingType, VerticalAlign, AlignmentType,
+  HeightRule, TabStopType, PageOrientation
+} = docx;
+
+const LARGHEZZE_COLONNE = [568, 425, 2069, 2070, 2098, 1985, 2126];
+const GRIGIO_CHIARO = { type: ShadingType.PERCENT_10, color: "auto", fill: "auto" };
+const BORDO = {
+  top:    { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+  bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+  left:   { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+  right:  { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+};
+const LARGHEZZA_LABEL = LARGHEZZE_COLONNE[0] + LARGHEZZE_COLONNE[1];
+const LARGHEZZE_GIORNI = LARGHEZZE_COLONNE.slice(2);
+
+function cellaLabel(testo, colSpan, rowSpanInfo, larghezza) {
+  return new TableCell({
+    columnSpan: colSpan || 1,
+    verticalMerge: rowSpanInfo,
+    verticalAlign: VerticalAlign.CENTER,
+    shading: GRIGIO_CHIARO,
+    borders: BORDO,
+    width: { size: larghezza, type: WidthType.DXA },
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: testo.split("\n").map((riga, idx) =>
+          new TextRun({ text: riga, bold: true, size: 12, font: "Times New Roman", break: idx > 0 ? 1 : 0 })
+        )
+      })
+    ]
+  });
+}
+
+function cellaGiorno(nomeGiorno, dataGiorno, larghezza) {
+  return new TableCell({
+    verticalAlign: VerticalAlign.CENTER,
+    shading: GRIGIO_CHIARO,
+    borders: BORDO,
+    width: { size: larghezza, type: WidthType.DXA },
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({ text: nomeGiorno, bold: true, underline: {}, size: 12, font: "Times New Roman" }),
+          new TextRun({ text: dataGiorno, bold: false, size: 12, font: "Times New Roman", break: 1 })
+        ]
+      })
+    ]
+  });
+}
+
+function cellaDato(larghezza, paragrafi) {
+  return new TableCell({
+    borders: BORDO,
+    width: { size: larghezza, type: WidthType.DXA },
+    children: (paragrafi && paragrafi.length) ? paragrafi : [ new Paragraph({ children: [] }) ]
+  });
+}
+
+function altezzaRiga(dxa) {
+  return { value: dxa, rule: HeightRule.ATLEAST };
+}
+
+// Righe della tabella nell'ordine originale, con il codice sezione corrispondente (null = mai da Excel)
+const RIGHE_TABELLA = [
+  { nome: "SEZIONE ARTIGLIERIE TERRESTRI", altezza: 3964, codice: "ARTIGLIERIE" },
+  { nome: "SEZIONE CARRI E BLINDO", altezza: 327, codice: "CARRI_BLINDO" },
+  { nome: "SEZIONE MORTAI, ARMI C/C E C/A", altezza: 121, codice: "MORTAI" },
+  { nome: "NEA", altezza: 121, codice: "NEA" },
+  { nome: "SEZIONE\nIMPIANTI", altezza: 123, codice: "IMPIANTI" },
+  { nome: "SERVIZIO POLIGONO DI SANTA SEVERA", altezza: 123, codice: null },
+];
+
+// ===================== COMPOSIZIONE TESTO CELLA (regole di formattazione) =====================
+const ETICHETTE_REP = {
+  repArtificieri: "Rep. Artificieri",
+  repArmamento: "Rep. Armamento",
+  repOsservatori: "Rep. Osservatori",
+  sezMetrobalistica: "Sez. Metrobalistica"
+};
+const DIM_TESTO_CELLA = 13; // 6.5pt
+const FONT_CELLA = "Times New Roman";
+
+function runCella(testo, opts) {
+  opts = opts || {};
+  return new TextRun({
+    text: testo, bold: !!opts.bold, underline: opts.underline ? {} : undefined,
+    size: DIM_TESTO_CELLA, font: FONT_CELLA
+  });
+}
+function terminaFrase(testo) {
+  return testo.endsWith(".") ? testo : testo + ".";
+}
+
+function componiAttivita(dati) {
+  const paragrafi = [];
+
+  paragrafi.push(new Paragraph({
+    children: [ runCella(`${dati.tipologia} ${dati.ditta} – ${dati.titolo}`.trim(), { bold: true }) ]
+  }));
+
+  let contenutoRiga2 = [];
+  function aggiungiSegmento(nuoviRuns) {
+    if (contenutoRiga2.length > 0) contenutoRiga2.push(runCella(" "));
+    contenutoRiga2 = contenutoRiga2.concat(nuoviRuns);
+  }
+  if (dati.descrizione && dati.descrizione.trim()) {
+    aggiungiSegmento([ runCella(dati.descrizione.trim()) ]);
+  }
+  if (dati.squadraEmergenze === "disposizione") {
+    aggiungiSegmento([ runCella("Squadra emergenze:", { underline: true }), runCella(" a disposizione.") ]);
+  }
+  Object.keys(ETICHETTE_REP).filter(k => dati[k] === "in_btr").forEach(k => {
+    aggiungiSegmento([ runCella(ETICHETTE_REP[k] + ":", { underline: true }), runCella(" in btr.") ]);
+  });
+  if (contenutoRiga2.length > 0) {
+    paragrafi.push(new Paragraph({ children: contenutoRiga2 }));
+  }
+
+  if ((dati.pos && dati.pos.trim()) || (dati.sic && dati.sic.trim())) {
+    let testo = "";
+    if (dati.pos && dati.pos.trim()) testo += "POS = " + dati.pos.trim();
+    if (dati.sic && dati.sic.trim()) testo += (testo ? " - " : "") + "SIC = " + dati.sic.trim();
+    paragrafi.push(new Paragraph({ children: [ runCella(testo, { bold: true }) ] }));
+  }
+
+  if (dati.btr && dati.btr.trim()) {
+    paragrafi.push(new Paragraph({ children: [ runCella("Btr " + dati.btr.trim(), { bold: true }) ] }));
+  }
+
+  const sanitariPresente = dati.assettiSanitari === "ditta";
+  const sgomberoPresente = dati.sgomberoTerra || dati.sgomberoMare;
+  const sgomberoCuraDitta = dati.sgomberoCura === "ditta";
+  const doveSgombero = (dati.sgomberoTerra && dati.sgomberoMare) ? "a terra e mare" : (dati.sgomberoTerra ? "a terra" : "a mare");
+
+  const righeAssetti = [];
+  if (sanitariPresente && sgomberoPresente && sgomberoCuraDitta) {
+    righeAssetti.push(terminaFrase("Assetti per assistenza sanitaria e sgombero " + doveSgombero + " a cura " + dati.ditta));
+  } else {
+    if (sanitariPresente) righeAssetti.push(terminaFrase("Assetti per assistenza sanitaria a cura " + dati.ditta));
+    if (sgomberoPresente) {
+      let riga = "Sgombero " + doveSgombero;
+      if (sgomberoCuraDitta) riga += " a cura " + dati.ditta;
+      righeAssetti.push(terminaFrase(riga));
+    }
+  }
+  if (righeAssetti.length > 0) {
+    paragrafi.push(new Paragraph({ children: [] }));
+    righeAssetti.forEach(r => paragrafi.push(new Paragraph({ children: [ runCella(r, { bold: true }) ] })));
+  }
+
+  return paragrafi;
+}
+
+function componiCella(listaAttivita) {
+  if (!listaAttivita || listaAttivita.length === 0) {
+    return [ new Paragraph({ children: [] }) ];
+  }
+  let paragrafi = [];
+  listaAttivita.forEach((attivita, idx) => {
+    if (idx > 0) paragrafi.push(new Paragraph({ children: [] }));
+    paragrafi = paragrafi.concat(componiAttivita(attivita));
+  });
+  return paragrafi;
+}
+
+// ===================== RACCOLTA DATI PER OGNI CELLA (formSalvati oppure bozza da Excel) =====================
+function datiAttivitaPerCella(codiceSezione, giornoIndex, elencoNonCompilate) {
+  if (!codiceSezione || !datiRaggruppati || !datiRaggruppati.risultato[codiceSezione]) return [];
+  const righeGrezze = datiRaggruppati.risultato[codiceSezione][giornoIndex] || [];
+  return righeGrezze.map((rigaExcel, idx) => {
+    const chiave = chiaveUnivoca(codiceSezione, giornoIndex, idx);
+    const salvato = formSalvati[chiave];
+    if (salvato) return salvato;
+
+    // Fallback: nessun form compilato per questa attività, uso una bozza minima dall'Excel
+    elencoNonCompilate.push((rigaExcel["DITTA"] || "Ditta sconosciuta") + " — " + NOMI_SEZIONI[codiceSezione] + " (" + ["LUN","MAR","MER","GIO","VEN"][giornoIndex] + ")");
+    const tipologiaExcel = normalizzaSpazi(rigaExcel["Tipologia"]).toUpperCase();
+    return {
+      tipologia: (tipologiaExcel === "AD") ? "AD" : "CT",
+      ditta: rigaExcel["DITTA"] || "",
+      titolo: rigaExcel["Descrizione Attività"] || "",
+      descrizione: "",
+      btr: rigaExcel["Btr/Linea di Tiro/commenti"] || "",
+      squadraEmergenze: null, repArtificieri: null, repArmamento: null, repOsservatori: null, sezMetrobalistica: null,
+      pos: "", sic: "", assettiSanitari: null, sgomberoTerra: false, sgomberoMare: false, sgomberoCura: null
+    };
+  });
+}
+
+// ===================== ASSEMBLAGGIO DOCUMENTO COMPLETO =====================
+function generaDocumento() {
+  if (!righeExcelGlobali || righeExcelGlobali.length === 0) {
+    alert("Carica prima il file Excel (passaggio 1).");
+    return;
+  }
+
+  const elencoNonCompilate = [];
+
+  const giorniNomi = ["LUNEDÌ", "MARTEDÌ", "MERCOLEDÌ", "GIOVEDÌ", "VENERDÌ"];
+  const rigaIntestazione = new TableRow({
+    height: altezzaRiga(309),
+    children: [
+      cellaLabel("", 2, undefined, LARGHEZZA_LABEL),
+      ...giorniNomi.map((nome, i) => cellaGiorno(nome, formatDDMM(dateGiorniCorrenti[i]), LARGHEZZE_GIORNI[i]))
+    ]
+  });
+
+  const righeTabellaFinale = RIGHE_TABELLA.map(riga =>
+    new TableRow({
+      height: altezzaRiga(riga.altezza),
+      children: [
+        cellaLabel(riga.nome, 2, undefined, LARGHEZZA_LABEL),
+        ...LARGHEZZE_GIORNI.map((larghezza, giornoIndex) => {
+          const lista = datiAttivitaPerCella(riga.codice, giornoIndex, elencoNonCompilate);
+          return cellaDato(larghezza, componiCella(lista));
+        })
+      ]
+    })
+  );
+
+  const tabella = new Table({
+    width: { size: LARGHEZZE_COLONNE.reduce((a,b) => a+b, 0), type: WidthType.DXA },
+    columnWidths: LARGHEZZE_COLONNE,
+    indent: { size: -289, type: WidthType.DXA },
+    rows: [rigaIntestazione, ...righeTabellaFinale]
+  });
+
+  const spazioIniziale = new Paragraph({ text: "" });
+  const titolo = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children: [ new TextRun({ text: "UFFICIO TECNICO TERRITORIALE ARMAMENTI TERRESTRI - NETTUNO", bold: true, size: 20, font: "Times New Roman" }) ]
+  });
+  const sottotitolo = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 200 },
+    children: [ new TextRun({
+      text: "PROGRAMMA SETTIMANALE DEI TIRI E LAVORI DAL " + formatDDMMYYYY(dateGiorniCorrenti[0]) + " AL " + formatDDMMYYYY(dateGiorniCorrenti[4]),
+      bold: true, size: 20, font: "Times New Roman"
+    }) ]
+  });
+  const spazioDopoTabella = new Paragraph({ text: "", spacing: { before: 200 } });
+  const rigaFirmeTitoli = new Paragraph({
+    tabStops: [{ type: TabStopType.CENTER, position: 2694 }, { type: TabStopType.CENTER, position: 8080 }],
+    children: [ new TextRun({ text: "\tIL CAPO SERVIZIO SUPPORTO TECNICO POLIGONO\tIL CAPO SERVIZIO POLIGONO", size: 16, font: "Times New Roman" }) ]
+  });
+  const rigaFirmeNomi = new Paragraph({
+    tabStops: [{ type: TabStopType.CENTER, position: 2694 }, { type: TabStopType.CENTER, position: 8080 }],
+    children: [ new TextRun({ text: "\tTen. Col. g. (gua) Francesco IODICE\tMagg. ing. Andrea DI MARIO", size: 16, font: "Times New Roman" }) ]
+  });
+  const spazioVisto = new Paragraph({ text: "", spacing: { before: 300 } });
+  const rigaVisto = new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "VISTO, si approva:", size: 16, font: "Times New Roman" }) ] });
+  const rigaViceDirettore = new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "IL VICE DIRETTORE", size: 16, font: "Times New Roman" }) ] });
+  const rigaNomeVice = new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "Ten. Col. ing. Francesco RUTIGLIANO", size: 16, font: "Times New Roman" }) ] });
+
+  const doc = new Document({
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT },
+          margin: { top: 180, bottom: 180, left: 567, right: 566 }
+        }
+      },
+      children: [ spazioIniziale, titolo, sottotitolo, tabella, spazioDopoTabella, rigaFirmeTitoli, rigaFirmeNomi, spazioVisto, rigaVisto, rigaViceDirettore, rigaNomeVice ]
+    }]
+  });
+
+  Packer.toBlob(doc).then(function(blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "Settimanale_dal_" + formatDDMMYYYY(dateGiorniCorrenti[0]).replace(/\//g,"-") +
+                 "_al_" + formatDDMMYYYY(dateGiorniCorrenti[4]).replace(/\//g,"-") + ".docx";
+    a.click();
+
+    const divAvviso = document.getElementById('avvisoNonCompilate');
+    if (elencoNonCompilate.length > 0) {
+      divAvviso.textContent = "Attenzione: le seguenti attività non erano state compilate nel form e sono state inserite con i soli dati grezzi dell'Excel:\n" +
+        elencoNonCompilate.map(x => "- " + x).join("\n");
+    } else {
+      divAvviso.textContent = "";
+    }
+  }).catch(function(err) {
+    alert("Errore nella generazione: " + err.message);
+  });
+}
+
+document.getElementById('btnGenera').onclick = generaDocumento;
 </script>
 
 </body>
