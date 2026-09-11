@@ -80,17 +80,31 @@
   }
   label { color: var(--ink-soft); font-size: 13px; }
 
-  .settimana-giorni { display: flex; gap: 10px; margin-top: 14px; }
+  .settimana-nav { display: flex; align-items: center; gap: 8px; }
+  .nav-freccia {
+    width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line);
+    background: #fff; color: var(--steel); font-size: 16px; cursor: pointer; line-height: 1;
+  }
+  .nav-freccia:hover { background: var(--steel-soft); border-color: var(--steel); }
+  .settimana-range {
+    flex: 1; text-align: center; font-size: 14px; font-weight: 600; color: var(--ink);
+  }
+  .nav-calendario {
+    width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line);
+    background: #fff; font-size: 13px; cursor: pointer;
+  }
+  .nav-calendario:hover { background: var(--steel-soft); border-color: var(--steel); }
+
+  .settimana-giorni { display: flex; gap: 6px; margin-top: 10px; }
   .giorno-box {
-    flex: 1; text-align: center; padding: 10px 6px;
+    flex: 1; text-align: center; padding: 5px 4px;
     border: 1px solid var(--line); border-left: 3px solid var(--line);
-    border-radius: 6px; background: #fafbfb; font-size: 13px; color: var(--ink-soft);
+    border-radius: 5px; background: #fafbfb; font-size: 11.5px; color: var(--ink-soft);
   }
   .giorno-box.oggi {
     background: var(--amber-soft); border-left: 3px solid var(--amber);
     color: var(--ink); font-weight: 600;
   }
-
   .sezioni-tabs { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
   .sezione-tab {
     padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px;
@@ -125,6 +139,8 @@
     cursor: grab;
   }
   .attivita-item.in-trascinamento { opacity: 0.4; }
+  .attivita-item.drop-prima { box-shadow: inset 0 3px 0 var(--steel); }
+  .attivita-item.drop-dopo { box-shadow: inset 0 -3px 0 var(--steel); }
   .lista-attivita-sezione { min-height: 20px; border-radius: 6px; transition: background 0.12s; }
   .lista-attivita-sezione.drag-over { background: var(--steel-soft); outline: 2px dashed var(--steel); outline-offset: 2px; }
   .attivita-item:hover { background: var(--steel-soft); }
@@ -241,8 +257,13 @@
   <div class="step-body">
     <div class="step-title">Seleziona la settimana</div>
     <div class="panel">
-      <label>Scegli un giorno qualsiasi della settimana desiderata</label><br>
-      <input type="date" id="dataRiferimento" style="margin-top:6px;">
+      <div class="settimana-nav">
+        <button type="button" id="settPrec" class="nav-freccia" title="Settimana precedente">‹</button>
+        <div class="settimana-range" id="settimanaRangeTesto"></div>
+        <button type="button" id="settSucc" class="nav-freccia" title="Settimana successiva">›</button>
+        <button type="button" id="settCalendario" class="nav-calendario" title="Vai a una data">📅</button>
+        <input type="date" id="dataRiferimento" style="position:absolute; opacity:0; width:1px; height:1px; pointer-events:none;">
+      </div>
       <div class="settimana-giorni" id="boxSettimana"></div>
     </div>
   </div>
@@ -353,7 +374,7 @@
     </div>
 
     <div class="campo-form">
-      <label>Sgombero</label>
+      <label style="font-weight: normal; color: var(--ink-soft);">Sgombero</label>
       <div class="riga-sgombero">
         <label class="scelta-singola"><input type="checkbox" id="campoSgomberoCura"> A cura Ditta</label>
         <div class="riga-sgombero-destra">
@@ -518,6 +539,22 @@ inputData.valueAsDate = lunediProssimo;
 
 inputData.addEventListener('change', aggiornaTutto);
 
+document.getElementById('settPrec').onclick = function() {
+  const d = inputData.valueAsDate || new Date();
+  d.setDate(d.getDate() - 7);
+  inputData.valueAsDate = d;
+  aggiornaTutto();
+};
+document.getElementById('settSucc').onclick = function() {
+  const d = inputData.valueAsDate || new Date();
+  d.setDate(d.getDate() + 7);
+  inputData.valueAsDate = d;
+  aggiornaTutto();
+};
+document.getElementById('settCalendario').onclick = function() {
+  if (inputData.showPicker) { inputData.showPicker(); } else { inputData.click(); }
+};
+
 function calcolaGiorniSettimana() {
   const riferimento = inputData.valueAsDate || new Date();
   const lunedi = getMondayOfWeek(riferimento);
@@ -530,7 +567,20 @@ function calcolaGiorniSettimana() {
   return giorni;
 }
 
+const MESI_ITALIANI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+
+function formatRangeSettimana(lunedi, venerdi) {
+  const gg1 = lunedi.getDate(), gg2 = venerdi.getDate();
+  const m1 = lunedi.getMonth(), m2 = venerdi.getMonth();
+  const a1 = lunedi.getFullYear(), a2 = venerdi.getFullYear();
+  if (a1 !== a2) return gg1 + " " + MESI_ITALIANI[m1] + " " + a1 + " – " + gg2 + " " + MESI_ITALIANI[m2] + " " + a2;
+  if (m1 !== m2) return gg1 + " " + MESI_ITALIANI[m1] + " – " + gg2 + " " + MESI_ITALIANI[m2] + " " + a1;
+  return gg1 + " – " + gg2 + " " + MESI_ITALIANI[m1] + " " + a1;
+}
+
 function disegnaBoxSettimana() {
+  document.getElementById('settimanaRangeTesto').textContent = formatRangeSettimana(dateGiorniCorrenti[0], dateGiorniCorrenti[4]);
+
   const box = document.getElementById('boxSettimana');
   const nomi = ["LUN","MAR","MER","GIO","VEN"];
   const oggiReale = new Date(); oggiReale.setHours(0,0,0,0);
@@ -638,11 +688,13 @@ function disegnaGrigliaGiorni() {
         e.preventDefault();
         lista.classList.remove('drag-over');
         const idTrascinato = e.dataTransfer.getData('text/plain');
-        const record = registroAttivita.find(r => r.id === idTrascinato);
-        if (record && record.sezione === codiceSezione && record.giorno !== giornoIndex) {
-          record.giorno = giornoIndex;
-          aggiornaVisualizzazione();
-        }
+        const sorgente = registroAttivita.find(r => r.id === idTrascinato);
+        if (!sorgente || sorgente.sezione !== codiceSezione) return;
+        // Rilascio su spazio vuoto della lista (non su una attività specifica) -> la sposto in fondo a questo giorno
+        registroAttivita = registroAttivita.filter(r => r.id !== sorgente.id);
+        sorgente.giorno = giornoIndex;
+        registroAttivita.push(sorgente);
+        aggiornaVisualizzazione();
       };
 
       const recordGiorno = registroAttivita.filter(r => r.sezione === codiceSezione && r.giorno === giornoIndex);
@@ -668,6 +720,34 @@ function disegnaGrigliaGiorni() {
         };
         itemDiv.ondragend = function() {
           itemDiv.classList.remove('in-trascinamento');
+        };
+        itemDiv.ondragover = function(e) {
+          e.preventDefault();
+          e.stopPropagation(); // evita che si attivi anche l'evidenziazione del contenitore
+          const rect = itemDiv.getBoundingClientRect();
+          const sopra = (e.clientY - rect.top) < rect.height / 2;
+          itemDiv.classList.toggle('drop-prima', sopra);
+          itemDiv.classList.toggle('drop-dopo', !sopra);
+        };
+        itemDiv.ondragleave = function() {
+          itemDiv.classList.remove('drop-prima', 'drop-dopo');
+        };
+        itemDiv.ondrop = function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const sopra = itemDiv.classList.contains('drop-prima');
+          itemDiv.classList.remove('drop-prima', 'drop-dopo');
+
+          const idTrascinato = e.dataTransfer.getData('text/plain');
+          if (idTrascinato === record.id) return; // rilasciata su se stessa
+          const sorgente = registroAttivita.find(r => r.id === idTrascinato);
+          if (!sorgente || sorgente.sezione !== record.sezione) return;
+
+          registroAttivita = registroAttivita.filter(r => r.id !== sorgente.id);
+          sorgente.giorno = record.giorno; // adotta il giorno del bersaglio (utile se veniva da un altro giorno)
+          const idxBersaglio = registroAttivita.findIndex(r => r.id === record.id);
+          registroAttivita.splice(sopra ? idxBersaglio : idxBersaglio + 1, 0, sorgente);
+          aggiornaVisualizzazione();
         };
 
         const testoDiv = document.createElement('div');
