@@ -1096,11 +1096,34 @@ function generaDocumento(modalitaCompleta, codiceSezioneSingola) {
     })
   );
 
+  // Righe "ENTI ESTERNI" (Sede/Valmontorio): sempre vuote (non gestite da Excel per ora), solo nella versione completa
+  const righeEntiEsterni = [];
+  if (modalitaCompleta) {
+    righeEntiEsterni.push(
+      new TableRow({
+        height: altezzaRiga(392),
+        children: [
+          cellaLabel("ENTI ESTERNI", 1, "restart", LARGHEZZE_COLONNE[0]),
+          cellaLabel("Sede", 1, undefined, LARGHEZZE_COLONNE[1]),
+          ...LARGHEZZE_GIORNI.map(l => cellaDato(l))
+        ]
+      }),
+      new TableRow({
+        height: altezzaRiga(392),
+        children: [
+          cellaLabel("", 1, "continue", LARGHEZZE_COLONNE[0]),
+          cellaLabel("Valmontorio", 1, undefined, LARGHEZZE_COLONNE[1]),
+          ...LARGHEZZE_GIORNI.map(l => cellaDato(l))
+        ]
+      })
+    );
+  }
+
   const tabella = new Table({
     width: { size: LARGHEZZE_COLONNE.reduce((a,b) => a+b, 0), type: WidthType.DXA },
     columnWidths: LARGHEZZE_COLONNE,
     indent: { size: -289, type: WidthType.DXA },
-    rows: [rigaIntestazione, ...righeTabellaFinale]
+    rows: [rigaIntestazione, ...righeTabellaFinale, ...righeEntiEsterni]
   });
 
   const suffissoSezione = modalitaCompleta ? "" : " – " + NOMI_SEZIONI[codiceSezioneSingola];
