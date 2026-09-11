@@ -122,17 +122,18 @@
     border-left: 3px solid var(--steel); border-radius: 5px;
     padding: 7px 8px; margin-bottom: 6px;
     transition: background 0.12s, border-color 0.12s;
+    cursor: grab;
   }
+  .attivita-item.in-trascinamento { opacity: 0.4; }
+  .lista-attivita-sezione { min-height: 20px; border-radius: 6px; transition: background 0.12s; }
+  .lista-attivita-sezione.drag-over { background: var(--steel-soft); outline: 2px dashed var(--steel); outline-offset: 2px; }
   .attivita-item:hover { background: var(--steel-soft); }
   .attivita-item.compilata { border-left: 3px solid var(--green); background: var(--green-soft); }
   .attivita-item b { color: var(--ink); }
   .attivita-item .segno-ok { color: var(--green); font-weight: bold; }
   .attivita-item .testo-anteprima { cursor: pointer; }
   .attivita-item .riga-controlli {
-    display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px;
-  }
-  .attivita-item .sposta-giorno {
-    font-size: 11px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 6px;
   }
   .attivita-item .elimina-attivita {
     font-size: 11px; color: var(--red); background: none; border: none; cursor: pointer; padding: 2px 6px;
@@ -182,6 +183,12 @@
   .riga-doppia { display:flex; gap: 15px; }
   .riga-doppia .campo-form { flex:1; }
   .riga-doppia select { flex: 1; }
+  .riga-btr-vs { display: flex; align-items: center; gap: 8px; }
+  .riga-btr-vs select { flex: 1; }
+  .testo-vs { font-size: 12px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; }
+  .riga-sgombero { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .riga-sgombero-destra { display: flex; gap: 16px; font-size: 13px; }
+  .riga-sgombero-destra label { font-weight: normal; display:flex; align-items:center; gap:5px; color: var(--ink); }
   .azioni-modale {
     display:flex; justify-content: flex-end; gap: 10px; margin-top: 22px;
     padding-top: 16px; border-top: 1px solid var(--line);
@@ -304,13 +311,14 @@
 
     <div class="campo-form">
       <label>Btr / Linea di Tiro</label>
-      <div class="riga-doppia">
+      <div class="riga-btr-vs">
         <select id="campoBtr1">
           <option value="">— nessuna —</option>
           <option value="Cavalli">Cavalli</option>
           <option value="Ronca">Ronca</option>
           <option value="Parodi">Parodi</option>
         </select>
+        <span class="testo-vs">vs</span>
         <select id="campoBtr2">
           <option value="">— nessuna —</option>
           <option value="Cavalli">Cavalli</option>
@@ -340,6 +348,21 @@
       <label class="scelta-singola"><input type="checkbox" id="campoSezMetrobalistica"> Sez. Metrobalistica in btr</label>
     </div>
 
+    <div class="campo-form">
+      <label class="scelta-singola"><input type="checkbox" id="campoAssettiSanitari"> Assetti sanitari a cura Ditta</label>
+    </div>
+
+    <div class="campo-form">
+      <label>Sgombero</label>
+      <div class="riga-sgombero">
+        <label class="scelta-singola"><input type="checkbox" id="campoSgomberoCura"> A cura Ditta</label>
+        <div class="riga-sgombero-destra">
+          <label><input type="checkbox" id="sgomberoTerra"> Terra</label>
+          <label><input type="checkbox" id="sgomberoMare"> Mare</label>
+        </div>
+      </div>
+    </div>
+
     <div class="riga-doppia">
       <div class="campo-form">
         <label>POS</label>
@@ -349,19 +372,6 @@
         <label>SIC</label>
         <input type="text" id="campoSic">
       </div>
-    </div>
-
-    <div class="campo-form">
-      <label class="scelta-singola"><input type="checkbox" id="campoAssettiSanitari"> Assetti sanitari a cura Ditta</label>
-    </div>
-
-    <div class="campo-form">
-      <label>Sgombero</label>
-      <div class="scelta-radio">
-        <label><input type="checkbox" id="sgomberoTerra"> Terra</label>
-        <label><input type="checkbox" id="sgomberoMare"> Mare</label>
-      </div>
-      <label class="scelta-singola" style="margin-top:8px;"><input type="checkbox" id="campoSgomberoCura"> Sgombero a cura Ditta</label>
     </div>
 
     <div class="azioni-modale">
@@ -586,7 +596,6 @@ function disegnaGrigliaGiorni() {
   const cont = document.getElementById('grigliaGiorni');
   cont.innerHTML = "";
   const nomi = ["LUNEDÌ","MARTEDÌ","MERCOLEDÌ","GIOVEDÌ","VENERDÌ"];
-  const nomiCorti = ["Lun","Mar","Mer","Gio","Ven"];
   const oggiReale = new Date(); oggiReale.setHours(0,0,0,0);
   const sezioniDaMostrare = Object.keys(NOMI_SEZIONI).filter(cod => sezioniSelezionate.has(cod));
 
@@ -612,13 +621,37 @@ function disegnaGrigliaGiorni() {
         div.appendChild(sotto);
       }
 
+      // Contenitore/zona di rilascio per questa combinazione sezione+giorno
+      const lista = document.createElement('div');
+      lista.className = "lista-attivita-sezione";
+      lista.dataset.sezione = codiceSezione;
+      lista.dataset.giorno = giornoIndex;
+
+      lista.ondragover = function(e) {
+        e.preventDefault();
+        lista.classList.add('drag-over');
+      };
+      lista.ondragleave = function() {
+        lista.classList.remove('drag-over');
+      };
+      lista.ondrop = function(e) {
+        e.preventDefault();
+        lista.classList.remove('drag-over');
+        const idTrascinato = e.dataTransfer.getData('text/plain');
+        const record = registroAttivita.find(r => r.id === idTrascinato);
+        if (record && record.sezione === codiceSezione && record.giorno !== giornoIndex) {
+          record.giorno = giornoIndex;
+          aggiornaVisualizzazione();
+        }
+      };
+
       const recordGiorno = registroAttivita.filter(r => r.sezione === codiceSezione && r.giorno === giornoIndex);
 
       if (recordGiorno.length === 0) {
         const p = document.createElement('div');
         p.className = "nessuna";
         p.textContent = "Nessuna attività";
-        div.appendChild(p);
+        lista.appendChild(p);
       }
 
       recordGiorno.forEach(record => {
@@ -627,6 +660,15 @@ function disegnaGrigliaGiorni() {
 
         const itemDiv = document.createElement('div');
         itemDiv.className = "attivita-item" + (compilata ? " compilata" : "");
+        itemDiv.draggable = true;
+        itemDiv.ondragstart = function(e) {
+          e.dataTransfer.setData('text/plain', record.id);
+          e.dataTransfer.effectAllowed = 'move';
+          itemDiv.classList.add('in-trascinamento');
+        };
+        itemDiv.ondragend = function() {
+          itemDiv.classList.remove('in-trascinamento');
+        };
 
         const testoDiv = document.createElement('div');
         testoDiv.className = "testo-anteprima";
@@ -636,21 +678,6 @@ function disegnaGrigliaGiorni() {
 
         const controlli = document.createElement('div');
         controlli.className = "riga-controlli";
-
-        const selectGiorno = document.createElement('select');
-        selectGiorno.className = "sposta-giorno";
-        nomiCorti.forEach((nc, idx) => {
-          const opt = document.createElement('option');
-          opt.value = idx;
-          opt.textContent = nc;
-          if (idx === record.giorno) opt.selected = true;
-          selectGiorno.appendChild(opt);
-        });
-        selectGiorno.onclick = function(e) { e.stopPropagation(); };
-        selectGiorno.onchange = function() {
-          record.giorno = parseInt(this.value, 10);
-          disegnaGrigliaGiorni();
-        };
 
         const btnElimina = document.createElement('button');
         btnElimina.className = "elimina-attivita";
@@ -663,12 +690,13 @@ function disegnaGrigliaGiorni() {
           }
         };
 
-        controlli.appendChild(selectGiorno);
         controlli.appendChild(btnElimina);
         itemDiv.appendChild(controlli);
 
-        div.appendChild(itemDiv);
+        lista.appendChild(itemDiv);
       });
+
+      div.appendChild(lista);
 
       const btnAggiungi = document.createElement('button');
       btnAggiungi.className = "aggiungi-attivita";
