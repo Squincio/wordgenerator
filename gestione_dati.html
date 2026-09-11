@@ -101,7 +101,6 @@
   .sezione-tab.attiva { background: var(--steel); color: white; border-color: var(--steel); }
   .sezione-tab.completa { box-shadow: inset 0 -3px 0 var(--green); }
   .sezione-tab.completa.attiva { background: var(--green); border-color: var(--green); box-shadow: none; }
-  .sezione-tab.evidenziata { outline: 2px solid var(--navy); outline-offset: 1px; }
 
   .griglia-giorni { display: flex; gap: 10px; margin-top: 18px; }
   .giorno-cella {
@@ -179,8 +178,10 @@
   .campo-form textarea { min-height: 60px; resize: vertical; }
   .scelta-radio { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; }
   .scelta-radio label { font-weight: normal; display:flex; align-items:center; gap:5px; color: var(--ink); }
+  .scelta-singola { font-weight: normal !important; display:flex; align-items:center; gap:6px; color: var(--ink); font-size: 13px; cursor: pointer; }
   .riga-doppia { display:flex; gap: 15px; }
   .riga-doppia .campo-form { flex:1; }
+  .riga-doppia select { flex: 1; }
   .azioni-modale {
     display:flex; justify-content: flex-end; gap: 10px; margin-top: 22px;
     padding-top: 16px; border-top: 1px solid var(--line);
@@ -303,47 +304,40 @@
 
     <div class="campo-form">
       <label>Btr / Linea di Tiro</label>
-      <input type="text" id="campoBtr">
-    </div>
-
-    <div class="campo-form">
-      <label>Squadra emergenze</label>
-      <div class="scelta-radio">
-        <label><input type="radio" name="squadraEmergenze" value="disposizione"> A disposizione</label>
-        <label><input type="radio" name="squadraEmergenze" value="non_necessaria"> Non necessaria</label>
+      <div class="riga-doppia">
+        <select id="campoBtr1">
+          <option value="">— nessuna —</option>
+          <option value="Cavalli">Cavalli</option>
+          <option value="Ronca">Ronca</option>
+          <option value="Parodi">Parodi</option>
+        </select>
+        <select id="campoBtr2">
+          <option value="">— nessuna —</option>
+          <option value="Cavalli">Cavalli</option>
+          <option value="Ronca">Ronca</option>
+          <option value="Parodi">Parodi</option>
+        </select>
       </div>
     </div>
 
     <div class="campo-form">
-      <label>Rep. Artificieri</label>
-      <div class="scelta-radio">
-        <label><input type="radio" name="repArtificieri" value="in_btr"> In btr</label>
-        <label><input type="radio" name="repArtificieri" value="non_presente"> Non presente</label>
-      </div>
+      <label class="scelta-singola"><input type="checkbox" id="campoSquadraEmergenze"> Squadra emergenze a disposizione</label>
     </div>
 
     <div class="campo-form">
-      <label>Rep. Armamento</label>
-      <div class="scelta-radio">
-        <label><input type="radio" name="repArmamento" value="in_btr"> In btr</label>
-        <label><input type="radio" name="repArmamento" value="non_presente"> Non presente</label>
-      </div>
+      <label class="scelta-singola"><input type="checkbox" id="campoRepArtificieri"> Rep. Artificieri in btr</label>
     </div>
 
     <div class="campo-form">
-      <label>Rep. Osservatori</label>
-      <div class="scelta-radio">
-        <label><input type="radio" name="repOsservatori" value="in_btr"> In btr</label>
-        <label><input type="radio" name="repOsservatori" value="non_presente"> Non presente</label>
-      </div>
+      <label class="scelta-singola"><input type="checkbox" id="campoRepArmamento"> Rep. Armamento in btr</label>
     </div>
 
     <div class="campo-form">
-      <label>Sez. Metrobalistica</label>
-      <div class="scelta-radio">
-        <label><input type="radio" name="sezMetrobalistica" value="in_btr"> In btr</label>
-        <label><input type="radio" name="sezMetrobalistica" value="non_presente"> Non presente</label>
-      </div>
+      <label class="scelta-singola"><input type="checkbox" id="campoRepOsservatori"> Rep. Osservatori in btr</label>
+    </div>
+
+    <div class="campo-form">
+      <label class="scelta-singola"><input type="checkbox" id="campoSezMetrobalistica"> Sez. Metrobalistica in btr</label>
     </div>
 
     <div class="riga-doppia">
@@ -358,11 +352,7 @@
     </div>
 
     <div class="campo-form">
-      <label>Assetti sanitari</label>
-      <div class="scelta-radio">
-        <label><input type="radio" name="assettiSanitari" value="ditta"> A cura Ditta</label>
-        <label><input type="radio" name="assettiSanitari" value="no"> No</label>
-      </div>
+      <label class="scelta-singola"><input type="checkbox" id="campoAssettiSanitari"> Assetti sanitari a cura Ditta</label>
     </div>
 
     <div class="campo-form">
@@ -371,10 +361,7 @@
         <label><input type="checkbox" id="sgomberoTerra"> Terra</label>
         <label><input type="checkbox" id="sgomberoMare"> Mare</label>
       </div>
-      <div class="scelta-radio" style="margin-top:8px;">
-        <label><input type="radio" name="sgomberoCura" value="ditta"> A cura Ditta</label>
-        <label><input type="radio" name="sgomberoCura" value="no"> No</label>
-      </div>
+      <label class="scelta-singola" style="margin-top:8px;"><input type="checkbox" id="campoSgomberoCura"> Sgombero a cura Ditta</label>
     </div>
 
     <div class="azioni-modale">
@@ -404,7 +391,6 @@ const NOMI_SEZIONI = {
 let datiRaggruppati = null;   // risultato di filtraERaggruppa (usato solo per contatori/scartate)
 let dateGiorniCorrenti = [];  // le 5 date (Lun-Ven) della settimana selezionata
 let sezioniSelezionate = new Set(["ARTIGLIERIE"]); // sezioni visibili nella griglia (multi-selezione)
-let sezioneEvidenziata = "ARTIGLIERIE"; // ultima sezione cliccata: usata per "Genera settimanale sezione" e per il pulsante "+ aggiungi"
 let registroAttivita = [];    // elenco vivo delle attività (spostabili/eliminabili/aggiungibili), fonte di verità per vista e generazione
 let prossimoIdAttivita = 1;
 let recordAperto = null;      // record esistente attualmente in modifica nella modale (null se si sta aggiungendo una nuova attività)
@@ -560,34 +546,30 @@ function disegnaTabsSezioni() {
     const div = document.createElement('div');
     div.className = "sezione-tab"
       + (sezioniSelezionate.has(codice) ? " attiva" : "")
-      + (codice === sezioneEvidenziata ? " evidenziata" : "")
       + (completa ? " completa" : "");
     div.textContent = nomeLungo + " (" + compilate + "/" + totale + ")";
     div.onclick = function() {
       if (sezioniSelezionate.has(codice)) {
         sezioniSelezionate.delete(codice);
-        if (sezioneEvidenziata === codice) {
-          sezioneEvidenziata = sezioniSelezionate.size ? Array.from(sezioniSelezionate)[0] : null;
-        }
       } else {
         sezioniSelezionate.add(codice);
-        sezioneEvidenziata = codice;
       }
       aggiornaVisualizzazione();
     };
     cont.appendChild(div);
   });
-  aggiornaTestoBottoneSezione();
+  aggiornaBottoneSezione();
 }
 
-function aggiornaTestoBottoneSezione() {
+// Il pulsante "Genera settimanale sezione" compare SOLO quando è selezionata esattamente una sezione
+function aggiornaBottoneSezione() {
   const btn = document.getElementById('btnGeneraSezione');
-  if (!sezioneEvidenziata) {
-    btn.textContent = "Genera settimanale sezione";
-    btn.disabled = true;
+  if (sezioniSelezionate.size === 1) {
+    const codice = Array.from(sezioniSelezionate)[0];
+    btn.style.display = "";
+    btn.textContent = "Genera settimanale " + NOMI_SEZIONI[codice];
   } else {
-    btn.textContent = "Genera settimanale " + NOMI_SEZIONI[sezioneEvidenziata];
-    btn.disabled = false;
+    btn.style.display = "none";
   }
 }
 
@@ -710,24 +692,33 @@ function disegnaAvvisoScartate() {
 }
 
 // ===================== GESTIONE MODALE FORM =====================
+const BTR_CONOSCIUTE = ["Cavalli", "Ronca", "Parodi"];
+
+function rilevaBtr(testoExcel) {
+  const testo = normalizzaSpazi(testoExcel);
+  const trovate = BTR_CONOSCIUTE.filter(b => testo.toLowerCase().includes(b.toLowerCase()));
+  return { btr1: trovate[0] || "", btr2: trovate[1] || "" };
+}
+
 function popolaCampiForm(dati, rigaExcelPerBozza) {
   if (dati) {
     document.getElementById('campoTipologia').value = dati.tipologia;
     impostaDitta(dati.ditta);
     document.getElementById('campoTitolo').value = dati.titolo;
     document.getElementById('campoDescrizione').value = dati.descrizione;
-    document.getElementById('campoBtr').value = dati.btr;
-    impostaRadio('squadraEmergenze', dati.squadraEmergenze);
-    impostaRadio('repArtificieri', dati.repArtificieri);
-    impostaRadio('repArmamento', dati.repArmamento);
-    impostaRadio('repOsservatori', dati.repOsservatori);
-    impostaRadio('sezMetrobalistica', dati.sezMetrobalistica);
+    document.getElementById('campoBtr1').value = dati.btr1 || "";
+    document.getElementById('campoBtr2').value = dati.btr2 || "";
+    document.getElementById('campoSquadraEmergenze').checked = !!dati.squadraEmergenze;
+    document.getElementById('campoRepArtificieri').checked = !!dati.repArtificieri;
+    document.getElementById('campoRepArmamento').checked = !!dati.repArmamento;
+    document.getElementById('campoRepOsservatori').checked = !!dati.repOsservatori;
+    document.getElementById('campoSezMetrobalistica').checked = !!dati.sezMetrobalistica;
     document.getElementById('campoPos').value = dati.pos;
     document.getElementById('campoSic').value = dati.sic;
-    impostaRadio('assettiSanitari', dati.assettiSanitari);
+    document.getElementById('campoAssettiSanitari').checked = !!dati.assettiSanitari;
     document.getElementById('sgomberoTerra').checked = dati.sgomberoTerra;
     document.getElementById('sgomberoMare').checked = dati.sgomberoMare;
-    impostaRadio('sgomberoCura', dati.sgomberoCura);
+    document.getElementById('campoSgomberoCura').checked = !!dati.sgomberoCura;
   } else {
     // Precompilo dai dati Excel (se presenti, es. bozza automatica), resto vuoto/default
     const r = rigaExcelPerBozza || {};
@@ -736,18 +727,20 @@ function popolaCampiForm(dati, rigaExcelPerBozza) {
     impostaDitta(r["DITTA"]);
     document.getElementById('campoTitolo').value = r["Descrizione Attività"] || "";
     document.getElementById('campoDescrizione').value = "";
-    document.getElementById('campoBtr').value = r["Btr/Linea di Tiro/commenti"] || "";
-    impostaRadio('squadraEmergenze', null);
-    impostaRadio('repArtificieri', null);
-    impostaRadio('repArmamento', null);
-    impostaRadio('repOsservatori', null);
-    impostaRadio('sezMetrobalistica', null);
+    const btrRilevate = rilevaBtr(r["Btr/Linea di Tiro/commenti"]);
+    document.getElementById('campoBtr1').value = btrRilevate.btr1;
+    document.getElementById('campoBtr2').value = btrRilevate.btr2;
+    document.getElementById('campoSquadraEmergenze').checked = false;
+    document.getElementById('campoRepArtificieri').checked = false;
+    document.getElementById('campoRepArmamento').checked = false;
+    document.getElementById('campoRepOsservatori').checked = false;
+    document.getElementById('campoSezMetrobalistica').checked = false;
     document.getElementById('campoPos').value = "";
     document.getElementById('campoSic').value = "";
-    impostaRadio('assettiSanitari', null);
+    document.getElementById('campoAssettiSanitari').checked = false;
     document.getElementById('sgomberoTerra').checked = false;
     document.getElementById('sgomberoMare').checked = false;
-    impostaRadio('sgomberoCura', null);
+    document.getElementById('campoSgomberoCura').checked = false;
   }
 }
 
@@ -763,14 +756,6 @@ function apriModaleNuovo(sezione, giornoIndex) {
   nuovoTarget = { sezione, giorno: giornoIndex };
   popolaCampiForm(null, null);
   document.getElementById('overlayModale').classList.add('aperto');
-}
-
-function impostaRadio(nome, valore) {
-  document.getElementsByName(nome).forEach(r => { r.checked = (r.value === valore); });
-}
-function leggiRadio(nome) {
-  const scelto = Array.from(document.getElementsByName(nome)).find(r => r.checked);
-  return scelto ? scelto.value : null;
 }
 
 const DITTE_FISSE = ["Leonardo s.p.a.", "KNDS Ammo Italy S.p.A.", "ELT", "MES", "Rheinmetall Italia S.p.A:"];
@@ -821,18 +806,19 @@ document.getElementById('btnSalva').onclick = function() {
     ditta: leggiDitta(),
     titolo: document.getElementById('campoTitolo').value,
     descrizione: document.getElementById('campoDescrizione').value,
-    btr: document.getElementById('campoBtr').value,
-    squadraEmergenze: leggiRadio('squadraEmergenze'),
-    repArtificieri: leggiRadio('repArtificieri'),
-    repArmamento: leggiRadio('repArmamento'),
-    repOsservatori: leggiRadio('repOsservatori'),
-    sezMetrobalistica: leggiRadio('sezMetrobalistica'),
+    btr1: document.getElementById('campoBtr1').value,
+    btr2: document.getElementById('campoBtr2').value,
+    squadraEmergenze: document.getElementById('campoSquadraEmergenze').checked,
+    repArtificieri: document.getElementById('campoRepArtificieri').checked,
+    repArmamento: document.getElementById('campoRepArmamento').checked,
+    repOsservatori: document.getElementById('campoRepOsservatori').checked,
+    sezMetrobalistica: document.getElementById('campoSezMetrobalistica').checked,
     pos: document.getElementById('campoPos').value,
     sic: document.getElementById('campoSic').value,
-    assettiSanitari: leggiRadio('assettiSanitari'),
+    assettiSanitari: document.getElementById('campoAssettiSanitari').checked,
     sgomberoTerra: document.getElementById('sgomberoTerra').checked,
     sgomberoMare: document.getElementById('sgomberoMare').checked,
-    sgomberoCura: leggiRadio('sgomberoCura')
+    sgomberoCura: document.getElementById('campoSgomberoCura').checked
   };
 
   if (recordAperto) {
@@ -981,10 +967,10 @@ function componiAttivita(dati) {
   if (dati.descrizione && dati.descrizione.trim()) {
     aggiungiSegmento([ runCella(dati.descrizione.trim()) ]);
   }
-  if (dati.squadraEmergenze === "disposizione") {
+  if (dati.squadraEmergenze === true) {
     aggiungiSegmento([ runCella("Squadra emergenze:", { underline: true }), runCella(" a disposizione.") ]);
   }
-  Object.keys(ETICHETTE_REP).filter(k => dati[k] === "in_btr").forEach(k => {
+  Object.keys(ETICHETTE_REP).filter(k => dati[k] === true).forEach(k => {
     aggiungiSegmento([ runCella(ETICHETTE_REP[k] + ":", { underline: true }), runCella(" in btr.") ]);
   });
   if (contenutoRiga2.length > 0) {
@@ -998,13 +984,16 @@ function componiAttivita(dati) {
     paragrafi.push(new Paragraph({ children: [ runCella(testo, { bold: true }) ] }));
   }
 
-  if (dati.btr && dati.btr.trim()) {
-    paragrafi.push(new Paragraph({ children: [ runCella("Btr " + dati.btr.trim(), { bold: true }) ] }));
+  const btr1 = (dati.btr1 || "").trim();
+  const btr2 = (dati.btr2 || "").trim();
+  const testoBtr = (btr1 && btr2) ? (btr1 + " vs " + btr2) : (btr1 || btr2);
+  if (testoBtr) {
+    paragrafi.push(new Paragraph({ children: [ runCella("Btr " + testoBtr, { bold: true }) ] }));
   }
 
-  const sanitariPresente = dati.assettiSanitari === "ditta";
+  const sanitariPresente = dati.assettiSanitari === true;
   const sgomberoPresente = dati.sgomberoTerra || dati.sgomberoMare;
-  const sgomberoCuraDitta = dati.sgomberoCura === "ditta";
+  const sgomberoCuraDitta = dati.sgomberoCura === true;
   const doveSgombero = (dati.sgomberoTerra && dati.sgomberoMare) ? "a terra e mare" : (dati.sgomberoTerra ? "a terra" : "a mare");
 
   const righeAssetti = [];
@@ -1052,14 +1041,15 @@ function datiEffettivi(record, elencoNonCompilate) {
   const nomiGiorni = ["LUN","MAR","MER","GIO","VEN"];
   elencoNonCompilate.push((rigaExcel["DITTA"] || "(nuova attività)") + " — " + NOMI_SEZIONI[record.sezione] + " (" + nomiGiorni[record.giorno] + ")");
   const tipologiaExcel = normalizzaSpazi(rigaExcel["Tipologia"]).toUpperCase();
+  const btrRilevate = rilevaBtr(rigaExcel["Btr/Linea di Tiro/commenti"]);
   return {
     tipologia: (tipologiaExcel === "AD") ? "AD" : "CT",
     ditta: rigaExcel["DITTA"] || "",
     titolo: rigaExcel["Descrizione Attività"] || "",
     descrizione: "",
-    btr: rigaExcel["Btr/Linea di Tiro/commenti"] || "",
-    squadraEmergenze: null, repArtificieri: null, repArmamento: null, repOsservatori: null, sezMetrobalistica: null,
-    pos: "", sic: "", assettiSanitari: null, sgomberoTerra: false, sgomberoMare: false, sgomberoCura: null
+    btr1: btrRilevate.btr1, btr2: btrRilevate.btr2,
+    squadraEmergenze: false, repArtificieri: false, repArmamento: false, repOsservatori: false, sezMetrobalistica: false,
+    pos: "", sic: "", assettiSanitari: false, sgomberoTerra: false, sgomberoMare: false, sgomberoCura: false
   };
 }
 
@@ -1189,8 +1179,8 @@ function generaDocumento(modalitaCompleta, codiceSezioneSingola) {
 
 document.getElementById('btnGenera').onclick = function() { generaDocumento(true, null); };
 document.getElementById('btnGeneraSezione').onclick = function() {
-  if (!sezioneEvidenziata) { alert("Seleziona almeno una sezione."); return; }
-  generaDocumento(false, sezioneEvidenziata);
+  if (sezioniSelezionate.size !== 1) return; // il pulsante non dovrebbe nemmeno essere visibile in questo caso
+  generaDocumento(false, Array.from(sezioniSelezionate)[0]);
 };
 </script>
 
