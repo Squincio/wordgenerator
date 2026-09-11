@@ -99,6 +99,9 @@
   }
   .sezione-tab:hover { border-color: var(--steel); color: var(--steel); }
   .sezione-tab.attiva { background: var(--steel); color: white; border-color: var(--steel); }
+  .sezione-tab.completa { box-shadow: inset 0 -3px 0 var(--green); }
+  .sezione-tab.completa.attiva { background: var(--green); border-color: var(--green); box-shadow: none; }
+  .sezione-tab.evidenziata { outline: 2px solid var(--navy); outline-offset: 1px; }
 
   .griglia-giorni { display: flex; gap: 10px; margin-top: 18px; }
   .giorno-cella {
@@ -110,16 +113,37 @@
     margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: var(--ink-soft);
     text-transform: none; letter-spacing: 0.2px;
   }
+  .sottosezione-titolo {
+    font-size: 11px; font-weight: 700; color: var(--steel); text-transform: uppercase;
+    letter-spacing: 0.3px; margin: 10px 0 4px; padding-top: 6px; border-top: 1px dashed var(--line);
+  }
+  .sottosezione-titolo:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
   .attivita-item {
     font-size: 12.5px; background: #fff; border: 1px solid var(--line);
     border-left: 3px solid var(--steel); border-radius: 5px;
-    padding: 7px 8px; margin-bottom: 6px; cursor: pointer;
+    padding: 7px 8px; margin-bottom: 6px;
     transition: background 0.12s, border-color 0.12s;
   }
   .attivita-item:hover { background: var(--steel-soft); }
   .attivita-item.compilata { border-left: 3px solid var(--green); background: var(--green-soft); }
   .attivita-item b { color: var(--ink); }
-  .attivita-item .segno-ok { color: var(--green); font-weight: bold; float: right; }
+  .attivita-item .segno-ok { color: var(--green); font-weight: bold; }
+  .attivita-item .testo-anteprima { cursor: pointer; }
+  .attivita-item .riga-controlli {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px;
+  }
+  .attivita-item .sposta-giorno {
+    font-size: 11px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--ink-soft);
+  }
+  .attivita-item .elimina-attivita {
+    font-size: 11px; color: var(--red); background: none; border: none; cursor: pointer; padding: 2px 6px;
+  }
+  .attivita-item .elimina-attivita:hover { text-decoration: underline; }
+  .aggiungi-attivita {
+    font-size: 11.5px; color: var(--steel); background: none; border: 1px dashed var(--line);
+    border-radius: 5px; padding: 5px 8px; cursor: pointer; width: 100%; margin-top: 2px; margin-bottom: 10px;
+  }
+  .aggiungi-attivita:hover { border-color: var(--steel); background: var(--steel-soft); }
   .nessuna { font-size: 12px; color: #9aa3ab; font-style: italic; }
 
   #avviso-scartate {
@@ -170,12 +194,14 @@
   #btnAnnulla { background: #fff; color: var(--ink-soft); border-color: var(--line); }
   #btnAnnulla:hover { background: #f4f5f5; }
 
-  #btnGenera {
+  #btnGenera, #btnGeneraSezione {
     padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer;
     font-size: 14px; font-weight: 600; font-family: inherit;
-    background: var(--steel); color: white;
+    background: var(--steel); color: white; margin-right: 10px;
   }
-  #btnGenera:hover { background: var(--navy); }
+  #btnGenera:hover, #btnGeneraSezione:hover { background: var(--navy); }
+  #btnGeneraSezione { background: #fff; color: var(--steel); border: 1px solid var(--steel); }
+  #btnGeneraSezione:hover { background: var(--steel-soft); }
   #avvisoNonCompilate {
     margin-top: 14px; font-size: 13px; color: #8a6116; white-space: pre-wrap;
     background: var(--amber-soft); border: 1px solid #e9d3ac; border-radius: 6px; padding: 10px 12px;
@@ -217,7 +243,7 @@
 <div class="step">
   <div class="step-num">3</div>
   <div class="step-body">
-    <div class="step-title">Seleziona la sezione</div>
+    <div class="step-title">Seleziona una o più sezioni (per la vista)</div>
     <div class="sezioni-tabs" id="tabsSezioni"></div>
     <div class="griglia-giorni" id="grigliaGiorni"></div>
     <div id="avviso-scartate"></div>
@@ -229,7 +255,8 @@
   <div class="step-body">
     <div class="step-title">Genera il documento Word</div>
     <div class="panel">
-      <button id="btnGenera">Genera documento Word</button>
+      <button id="btnGenera">Genera settimanale completo</button>
+      <button id="btnGeneraSezione">Genera settimanale sezione</button>
       <div id="avvisoNonCompilate"></div>
     </div>
   </div>
@@ -374,14 +401,30 @@ const NOMI_SEZIONI = {
   "NEA": "NEA"
 };
 
-let datiRaggruppati = null;   // risultato di filtraERaggruppa
+let datiRaggruppati = null;   // risultato di filtraERaggruppa (usato solo per contatori/scartate)
 let dateGiorniCorrenti = [];  // le 5 date (Lun-Ven) della settimana selezionata
-let sezioneSelezionata = "ARTIGLIERIE";
-let formSalvati = {};         // chiave univoca -> dati compilati dal form
-let chiaveAttivitaAperta = null; // chiave dell'attività attualmente aperta nella modale
+let sezioniSelezionate = new Set(["ARTIGLIERIE"]); // sezioni visibili nella griglia (multi-selezione)
+let sezioneEvidenziata = "ARTIGLIERIE"; // ultima sezione cliccata: usata per "Genera settimanale sezione" e per il pulsante "+ aggiungi"
+let registroAttivita = [];    // elenco vivo delle attività (spostabili/eliminabili/aggiungibili), fonte di verità per vista e generazione
+let prossimoIdAttivita = 1;
+let recordAperto = null;      // record esistente attualmente in modifica nella modale (null se si sta aggiungendo una nuova attività)
+let nuovoTarget = null;       // {sezione, giorno} quando si sta aggiungendo una nuova attività (non ancora salvata)
 
-function chiaveUnivoca(sezione, giornoIndex, attivitaIndex) {
-  return sezione + "_" + giornoIndex + "_" + attivitaIndex;
+function nuovoId() {
+  return "act" + (prossimoIdAttivita++);
+}
+
+// Ricostruisce il registro attività a partire dal raggruppamento Excel (chiamato solo quando si ricarica l'Excel o si cambia settimana)
+function costruisciRegistro(risultato) {
+  const nuovo = [];
+  Object.keys(risultato).forEach(codiceSezione => {
+    risultato[codiceSezione].forEach((righeGiorno, giornoIndex) => {
+      righeGiorno.forEach(rigaExcel => {
+        nuovo.push({ id: nuovoId(), sezione: codiceSezione, giorno: giornoIndex, rigaExcel, formData: null });
+      });
+    });
+  });
+  return nuovo;
 }
 
 // ===================== UTILITY DATE =====================
@@ -504,50 +547,154 @@ function disegnaBoxSettimana() {
   });
 }
 
-// ===================== TABS SEZIONI =====================
+// ===================== TABS SEZIONI (multi-selezione) =====================
 function disegnaTabsSezioni() {
   const cont = document.getElementById('tabsSezioni');
   cont.innerHTML = "";
   Object.entries(NOMI_SEZIONI).forEach(([codice, nomeLungo]) => {
+    const recordSezione = registroAttivita.filter(r => r.sezione === codice);
+    const totale = recordSezione.length;
+    const compilate = recordSezione.filter(r => r.formData).length;
+    const completa = totale > 0 && compilate === totale;
+
     const div = document.createElement('div');
-    div.className = "sezione-tab" + (codice === sezioneSelezionata ? " attiva" : "");
-    const count = datiRaggruppati ? datiRaggruppati.risultato[codice].reduce((a,g)=>a+g.length,0) : 0;
-    div.textContent = nomeLungo + " (" + count + ")";
-    div.onclick = function() { sezioneSelezionata = codice; aggiornaVisualizzazione(); };
+    div.className = "sezione-tab"
+      + (sezioniSelezionate.has(codice) ? " attiva" : "")
+      + (codice === sezioneEvidenziata ? " evidenziata" : "")
+      + (completa ? " completa" : "");
+    div.textContent = nomeLungo + " (" + compilate + "/" + totale + ")";
+    div.onclick = function() {
+      if (sezioniSelezionate.has(codice)) {
+        sezioniSelezionate.delete(codice);
+        if (sezioneEvidenziata === codice) {
+          sezioneEvidenziata = sezioniSelezionate.size ? Array.from(sezioniSelezionate)[0] : null;
+        }
+      } else {
+        sezioniSelezionate.add(codice);
+        sezioneEvidenziata = codice;
+      }
+      aggiornaVisualizzazione();
+    };
     cont.appendChild(div);
   });
+  aggiornaTestoBottoneSezione();
 }
 
-// ===================== GRIGLIA GIORNI PER SEZIONE SELEZIONATA =====================
+function aggiornaTestoBottoneSezione() {
+  const btn = document.getElementById('btnGeneraSezione');
+  if (!sezioneEvidenziata) {
+    btn.textContent = "Genera settimanale sezione";
+    btn.disabled = true;
+  } else {
+    btn.textContent = "Genera settimanale " + NOMI_SEZIONI[sezioneEvidenziata];
+    btn.disabled = false;
+  }
+}
+
+// ===================== GRIGLIA GIORNI (multi-sezione, sposta/elimina/aggiungi) =====================
+function anteprimaAttivita(record) {
+  if (record.formData) {
+    return { ditta: record.formData.ditta || "(senza ditta)", testo: record.formData.titolo || record.formData.descrizione || "" };
+  }
+  const r = record.rigaExcel || {};
+  return { ditta: r["DITTA"] || "(nuova attività)", testo: r["Descrizione Attività"] || "" };
+}
+
 function disegnaGrigliaGiorni() {
   const cont = document.getElementById('grigliaGiorni');
   cont.innerHTML = "";
   const nomi = ["LUNEDÌ","MARTEDÌ","MERCOLEDÌ","GIOVEDÌ","VENERDÌ"];
+  const nomiCorti = ["Lun","Mar","Mer","Gio","Ven"];
   const oggiReale = new Date(); oggiReale.setHours(0,0,0,0);
+  const sezioniDaMostrare = Object.keys(NOMI_SEZIONI).filter(cod => sezioniSelezionate.has(cod));
 
-  const attivitaPerGiorno = datiRaggruppati ? datiRaggruppati.risultato[sezioneSelezionata] : [[],[],[],[],[]];
-
-  dateGiorniCorrenti.forEach((d, i) => {
+  dateGiorniCorrenti.forEach((d, giornoIndex) => {
     const div = document.createElement('div');
     div.className = "giorno-cella" + (stessoGiorno(d, oggiReale) ? " oggi" : "");
-    let html = "<h4>" + nomi[i] + " " + formatDDMM(d) + "</h4>";
-    const lista = attivitaPerGiorno[i];
-    if (lista.length === 0) {
-      html += "<div class='nessuna'>Nessuna attività</div>";
-      div.innerHTML = html;
-    } else {
-      div.innerHTML = html;
-      lista.forEach((a, indiceAttivita) => {
-        const chiave = chiaveUnivoca(sezioneSelezionata, i, indiceAttivita);
-        const compilata = !!formSalvati[chiave];
+    const titolo = document.createElement('h4');
+    titolo.textContent = nomi[giornoIndex] + " " + formatDDMM(d);
+    div.appendChild(titolo);
+
+    if (sezioniDaMostrare.length === 0) {
+      const p = document.createElement('div');
+      p.className = "nessuna";
+      p.textContent = "Seleziona almeno una sezione";
+      div.appendChild(p);
+    }
+
+    sezioniDaMostrare.forEach(codiceSezione => {
+      if (sezioniDaMostrare.length > 1) {
+        const sotto = document.createElement('div');
+        sotto.className = "sottosezione-titolo";
+        sotto.textContent = NOMI_SEZIONI[codiceSezione];
+        div.appendChild(sotto);
+      }
+
+      const recordGiorno = registroAttivita.filter(r => r.sezione === codiceSezione && r.giorno === giornoIndex);
+
+      if (recordGiorno.length === 0) {
+        const p = document.createElement('div');
+        p.className = "nessuna";
+        p.textContent = "Nessuna attività";
+        div.appendChild(p);
+      }
+
+      recordGiorno.forEach(record => {
+        const compilata = !!record.formData;
+        const { ditta, testo } = anteprimaAttivita(record);
+
         const itemDiv = document.createElement('div');
         itemDiv.className = "attivita-item" + (compilata ? " compilata" : "");
-        itemDiv.innerHTML = "<b>" + (a["DITTA"]||"") + "</b>" + (compilata ? "<span class='segno-ok'>&#10003;</span>" : "") +
-                             "<br>" + (a["Descrizione Attività"]||"");
-        itemDiv.onclick = function() { apriModale(sezioneSelezionata, i, indiceAttivita, a); };
+
+        const testoDiv = document.createElement('div');
+        testoDiv.className = "testo-anteprima";
+        testoDiv.innerHTML = "<b>" + ditta + "</b>" + (compilata ? " <span class='segno-ok'>&#10003;</span>" : "") + "<br>" + testo;
+        testoDiv.onclick = function() { apriModaleEsistente(record); };
+        itemDiv.appendChild(testoDiv);
+
+        const controlli = document.createElement('div');
+        controlli.className = "riga-controlli";
+
+        const selectGiorno = document.createElement('select');
+        selectGiorno.className = "sposta-giorno";
+        nomiCorti.forEach((nc, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = nc;
+          if (idx === record.giorno) opt.selected = true;
+          selectGiorno.appendChild(opt);
+        });
+        selectGiorno.onclick = function(e) { e.stopPropagation(); };
+        selectGiorno.onchange = function() {
+          record.giorno = parseInt(this.value, 10);
+          disegnaGrigliaGiorni();
+        };
+
+        const btnElimina = document.createElement('button');
+        btnElimina.className = "elimina-attivita";
+        btnElimina.textContent = "Elimina";
+        btnElimina.onclick = function(e) {
+          e.stopPropagation();
+          if (confirm("Eliminare questa attività dal programma?")) {
+            registroAttivita = registroAttivita.filter(r => r.id !== record.id);
+            aggiornaVisualizzazione();
+          }
+        };
+
+        controlli.appendChild(selectGiorno);
+        controlli.appendChild(btnElimina);
+        itemDiv.appendChild(controlli);
+
         div.appendChild(itemDiv);
       });
-    }
+
+      const btnAggiungi = document.createElement('button');
+      btnAggiungi.className = "aggiungi-attivita";
+      btnAggiungi.textContent = "+ Aggiungi attività";
+      btnAggiungi.onclick = function() { apriModaleNuovo(codiceSezione, giornoIndex); };
+      div.appendChild(btnAggiungi);
+    });
+
     cont.appendChild(div);
   });
 }
@@ -563,38 +710,33 @@ function disegnaAvvisoScartate() {
 }
 
 // ===================== GESTIONE MODALE FORM =====================
-function apriModale(sezione, giornoIndex, attivitaIndex, rigaExcel) {
-  chiaveAttivitaAperta = chiaveUnivoca(sezione, giornoIndex, attivitaIndex);
-  const overlay = document.getElementById('overlayModale');
-
-  const salvatoPrecedente = formSalvati[chiaveAttivitaAperta];
-
-  if (salvatoPrecedente) {
-    // Ricarico i valori salvati in precedenza
-    document.getElementById('campoTipologia').value = salvatoPrecedente.tipologia;
-    impostaDitta(salvatoPrecedente.ditta);
-    document.getElementById('campoTitolo').value = salvatoPrecedente.titolo;
-    document.getElementById('campoDescrizione').value = salvatoPrecedente.descrizione;
-    document.getElementById('campoBtr').value = salvatoPrecedente.btr;
-    impostaRadio('squadraEmergenze', salvatoPrecedente.squadraEmergenze);
-    impostaRadio('repArtificieri', salvatoPrecedente.repArtificieri);
-    impostaRadio('repArmamento', salvatoPrecedente.repArmamento);
-    impostaRadio('repOsservatori', salvatoPrecedente.repOsservatori);
-    impostaRadio('sezMetrobalistica', salvatoPrecedente.sezMetrobalistica);
-    document.getElementById('campoPos').value = salvatoPrecedente.pos;
-    document.getElementById('campoSic').value = salvatoPrecedente.sic;
-    impostaRadio('assettiSanitari', salvatoPrecedente.assettiSanitari);
-    document.getElementById('sgomberoTerra').checked = salvatoPrecedente.sgomberoTerra;
-    document.getElementById('sgomberoMare').checked = salvatoPrecedente.sgomberoMare;
-    impostaRadio('sgomberoCura', salvatoPrecedente.sgomberoCura);
+function popolaCampiForm(dati, rigaExcelPerBozza) {
+  if (dati) {
+    document.getElementById('campoTipologia').value = dati.tipologia;
+    impostaDitta(dati.ditta);
+    document.getElementById('campoTitolo').value = dati.titolo;
+    document.getElementById('campoDescrizione').value = dati.descrizione;
+    document.getElementById('campoBtr').value = dati.btr;
+    impostaRadio('squadraEmergenze', dati.squadraEmergenze);
+    impostaRadio('repArtificieri', dati.repArtificieri);
+    impostaRadio('repArmamento', dati.repArmamento);
+    impostaRadio('repOsservatori', dati.repOsservatori);
+    impostaRadio('sezMetrobalistica', dati.sezMetrobalistica);
+    document.getElementById('campoPos').value = dati.pos;
+    document.getElementById('campoSic').value = dati.sic;
+    impostaRadio('assettiSanitari', dati.assettiSanitari);
+    document.getElementById('sgomberoTerra').checked = dati.sgomberoTerra;
+    document.getElementById('sgomberoMare').checked = dati.sgomberoMare;
+    impostaRadio('sgomberoCura', dati.sgomberoCura);
   } else {
-    // Precompilo dai dati Excel, resto vuoto/default
-    const tipologiaExcel = normalizzaSpazi(rigaExcel["Tipologia"]).toUpperCase();
+    // Precompilo dai dati Excel (se presenti, es. bozza automatica), resto vuoto/default
+    const r = rigaExcelPerBozza || {};
+    const tipologiaExcel = normalizzaSpazi(r["Tipologia"]).toUpperCase();
     document.getElementById('campoTipologia').value = (tipologiaExcel === "AD") ? "AD" : "CT";
-    impostaDitta(rigaExcel["DITTA"]);
-    document.getElementById('campoTitolo').value = rigaExcel["Descrizione Attività"] || "";
+    impostaDitta(r["DITTA"]);
+    document.getElementById('campoTitolo').value = r["Descrizione Attività"] || "";
     document.getElementById('campoDescrizione').value = "";
-    document.getElementById('campoBtr').value = rigaExcel["Btr/Linea di Tiro/commenti"] || "";
+    document.getElementById('campoBtr').value = r["Btr/Linea di Tiro/commenti"] || "";
     impostaRadio('squadraEmergenze', null);
     impostaRadio('repArtificieri', null);
     impostaRadio('repArmamento', null);
@@ -607,8 +749,20 @@ function apriModale(sezione, giornoIndex, attivitaIndex, rigaExcel) {
     document.getElementById('sgomberoMare').checked = false;
     impostaRadio('sgomberoCura', null);
   }
+}
 
-  overlay.classList.add('aperto');
+function apriModaleEsistente(record) {
+  recordAperto = record;
+  nuovoTarget = null;
+  popolaCampiForm(record.formData, record.rigaExcel);
+  document.getElementById('overlayModale').classList.add('aperto');
+}
+
+function apriModaleNuovo(sezione, giornoIndex) {
+  recordAperto = null;
+  nuovoTarget = { sezione, giorno: giornoIndex };
+  popolaCampiForm(null, null);
+  document.getElementById('overlayModale').classList.add('aperto');
 }
 
 function impostaRadio(nome, valore) {
@@ -655,14 +809,14 @@ document.getElementById('campoDittaSelect').addEventListener('change', function(
 
 function chiudiModale() {
   document.getElementById('overlayModale').classList.remove('aperto');
-  chiaveAttivitaAperta = null;
+  recordAperto = null;
+  nuovoTarget = null;
 }
 
 document.getElementById('btnAnnulla').onclick = chiudiModale;
 
 document.getElementById('btnSalva').onclick = function() {
-  if (!chiaveAttivitaAperta) return;
-  formSalvati[chiaveAttivitaAperta] = {
+  const datiForm = {
     tipologia: document.getElementById('campoTipologia').value,
     ditta: leggiDitta(),
     titolo: document.getElementById('campoTitolo').value,
@@ -680,8 +834,15 @@ document.getElementById('btnSalva').onclick = function() {
     sgomberoMare: document.getElementById('sgomberoMare').checked,
     sgomberoCura: leggiRadio('sgomberoCura')
   };
+
+  if (recordAperto) {
+    recordAperto.formData = datiForm;
+  } else if (nuovoTarget) {
+    registroAttivita.push({ id: nuovoId(), sezione: nuovoTarget.sezione, giorno: nuovoTarget.giorno, rigaExcel: null, formData: datiForm });
+  }
+
   chiudiModale();
-  disegnaGrigliaGiorni(); // per aggiornare il segno "compilata"
+  aggiornaVisualizzazione(); // aggiorna anteprima nel calendario + eventuale sezione diventata "completa"
 };
 
 // ===================== AGGIORNAMENTO GENERALE =====================
@@ -689,6 +850,7 @@ function aggiornaTutto() {
   dateGiorniCorrenti = calcolaGiorniSettimana();
   if (righeExcelGlobali.length > 0) {
     datiRaggruppati = filtraERaggruppa(righeExcelGlobali, dateGiorniCorrenti);
+    registroAttivita = costruisciRegistro(datiRaggruppati.risultato);
   }
   disegnaBoxSettimana();
   aggiornaVisualizzazione();
@@ -876,38 +1038,41 @@ function componiCella(listaAttivita) {
   return paragrafi;
 }
 
-// ===================== RACCOLTA DATI PER OGNI CELLA (formSalvati oppure bozza da Excel) =====================
-function datiAttivitaPerCella(codiceSezione, giornoIndex, elencoNonCompilate) {
-  if (!codiceSezione || !datiRaggruppati || !datiRaggruppati.risultato[codiceSezione]) return [];
-  const righeGrezze = datiRaggruppati.risultato[codiceSezione][giornoIndex] || [];
-  return righeGrezze.map((rigaExcel, idx) => {
-    const chiave = chiaveUnivoca(codiceSezione, giornoIndex, idx);
-    const salvato = formSalvati[chiave];
-    if (salvato) return salvato;
-
-    // Fallback: nessun form compilato per questa attività, uso una bozza minima dall'Excel
-    elencoNonCompilate.push((rigaExcel["DITTA"] || "Ditta sconosciuta") + " — " + NOMI_SEZIONI[codiceSezione] + " (" + ["LUN","MAR","MER","GIO","VEN"][giornoIndex] + ")");
-    const tipologiaExcel = normalizzaSpazi(rigaExcel["Tipologia"]).toUpperCase();
-    return {
-      tipologia: (tipologiaExcel === "AD") ? "AD" : "CT",
-      ditta: rigaExcel["DITTA"] || "",
-      titolo: rigaExcel["Descrizione Attività"] || "",
-      descrizione: "",
-      btr: rigaExcel["Btr/Linea di Tiro/commenti"] || "",
-      squadraEmergenze: null, repArtificieri: null, repArmamento: null, repOsservatori: null, sezMetrobalistica: null,
-      pos: "", sic: "", assettiSanitari: null, sgomberoTerra: false, sgomberoMare: false, sgomberoCura: null
-    };
-  });
+// ===================== RACCOLTA DATI PER OGNI CELLA (dal registro attività) =====================
+function recordsPerCella(codiceSezione, giornoIndex) {
+  if (!codiceSezione) return [];
+  return registroAttivita.filter(r => r.sezione === codiceSezione && r.giorno === giornoIndex);
 }
 
-// ===================== ASSEMBLAGGIO DOCUMENTO COMPLETO =====================
-function generaDocumento() {
-  if (!righeExcelGlobali || righeExcelGlobali.length === 0) {
+function datiEffettivi(record, elencoNonCompilate) {
+  if (record.formData) return record.formData;
+
+  // Fallback: attività mai aperta/compilata nel form, uso una bozza minima (da Excel se disponibile)
+  const rigaExcel = record.rigaExcel || {};
+  const nomiGiorni = ["LUN","MAR","MER","GIO","VEN"];
+  elencoNonCompilate.push((rigaExcel["DITTA"] || "(nuova attività)") + " — " + NOMI_SEZIONI[record.sezione] + " (" + nomiGiorni[record.giorno] + ")");
+  const tipologiaExcel = normalizzaSpazi(rigaExcel["Tipologia"]).toUpperCase();
+  return {
+    tipologia: (tipologiaExcel === "AD") ? "AD" : "CT",
+    ditta: rigaExcel["DITTA"] || "",
+    titolo: rigaExcel["Descrizione Attività"] || "",
+    descrizione: "",
+    btr: rigaExcel["Btr/Linea di Tiro/commenti"] || "",
+    squadraEmergenze: null, repArtificieri: null, repArmamento: null, repOsservatori: null, sezMetrobalistica: null,
+    pos: "", sic: "", assettiSanitari: null, sgomberoTerra: false, sgomberoMare: false, sgomberoCura: null
+  };
+}
+
+// ===================== ASSEMBLAGGIO DOCUMENTO =====================
+// modalitaCompleta=true -> tutte le sezioni; false -> solo codiceSezioneSingola (le altre righe vengono rimosse dalla tabella)
+function generaDocumento(modalitaCompleta, codiceSezioneSingola) {
+  if (registroAttivita.length === 0 && (!righeExcelGlobali || righeExcelGlobali.length === 0)) {
     alert("Carica prima il file Excel (passaggio 1).");
     return;
   }
 
   const elencoNonCompilate = [];
+  const righeDaUsare = modalitaCompleta ? RIGHE_TABELLA : RIGHE_TABELLA.filter(r => r.codice === codiceSezioneSingola);
 
   const giorniNomi = ["LUNEDÌ", "MARTEDÌ", "MERCOLEDÌ", "GIOVEDÌ", "VENERDÌ"];
   const rigaIntestazione = new TableRow({
@@ -918,13 +1083,13 @@ function generaDocumento() {
     ]
   });
 
-  const righeTabellaFinale = RIGHE_TABELLA.map(riga =>
+  const righeTabellaFinale = righeDaUsare.map(riga =>
     new TableRow({
       height: altezzaRiga(riga.altezza),
       children: [
         cellaLabel(riga.nome, 2, undefined, LARGHEZZA_LABEL),
         ...LARGHEZZE_GIORNI.map((larghezza, giornoIndex) => {
-          const lista = datiAttivitaPerCella(riga.codice, giornoIndex, elencoNonCompilate);
+          const lista = recordsPerCella(riga.codice, giornoIndex).map(r => datiEffettivi(r, elencoNonCompilate));
           return cellaDato(larghezza, componiCella(lista));
         })
       ]
@@ -938,6 +1103,8 @@ function generaDocumento() {
     rows: [rigaIntestazione, ...righeTabellaFinale]
   });
 
+  const suffissoSezione = modalitaCompleta ? "" : " – " + NOMI_SEZIONI[codiceSezioneSingola];
+
   const spazioIniziale = new Paragraph({ text: "" });
   const titolo = new Paragraph({
     alignment: AlignmentType.CENTER,
@@ -947,7 +1114,7 @@ function generaDocumento() {
     alignment: AlignmentType.CENTER,
     spacing: { after: 200 },
     children: [ new TextRun({
-      text: "PROGRAMMA SETTIMANALE DEI TIRI E LAVORI DAL " + formatDDMMYYYY(dateGiorniCorrenti[0]) + " AL " + formatDDMMYYYY(dateGiorniCorrenti[4]),
+      text: "PROGRAMMA SETTIMANALE DEI TIRI E LAVORI DAL " + formatDDMMYYYY(dateGiorniCorrenti[0]) + " AL " + formatDDMMYYYY(dateGiorniCorrenti[4]) + suffissoSezione,
       bold: true, size: 20, font: "Times New Roman"
     }) ]
   });
@@ -980,8 +1147,9 @@ function generaDocumento() {
   Packer.toBlob(doc).then(function(blob) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
+    const suffissoFile = modalitaCompleta ? "" : "_" + codiceSezioneSingola;
     a.download = "Settimanale_dal_" + formatDDMMYYYY(dateGiorniCorrenti[0]).replace(/\//g,"-") +
-                 "_al_" + formatDDMMYYYY(dateGiorniCorrenti[4]).replace(/\//g,"-") + ".docx";
+                 "_al_" + formatDDMMYYYY(dateGiorniCorrenti[4]).replace(/\//g,"-") + suffissoFile + ".docx";
     a.click();
 
     const divAvviso = document.getElementById('avvisoNonCompilate');
@@ -996,7 +1164,11 @@ function generaDocumento() {
   });
 }
 
-document.getElementById('btnGenera').onclick = generaDocumento;
+document.getElementById('btnGenera').onclick = function() { generaDocumento(true, null); };
+document.getElementById('btnGeneraSezione').onclick = function() {
+  if (!sezioneEvidenziata) { alert("Seleziona almeno una sezione."); return; }
+  generaDocumento(false, sezioneEvidenziata);
+};
 </script>
 
 </body>
