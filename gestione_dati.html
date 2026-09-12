@@ -221,11 +221,18 @@
   #btnGenera, #btnGeneraSezione, #btnGeneraOGTL, #btnGeneraOGTLSezione {
     padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer;
     font-size: 14px; font-weight: 600; font-family: inherit;
-    background: var(--steel); color: white; margin-right: 10px;
   }
-  #btnGenera:hover, #btnGeneraSezione:hover, #btnGeneraOGTL:hover, #btnGeneraOGTLSezione:hover { background: var(--navy); }
-  #btnGeneraSezione, #btnGeneraOGTL, #btnGeneraOGTLSezione { background: #fff; color: var(--steel); border: 1px solid var(--steel); }
-  #btnGeneraSezione:hover, #btnGeneraOGTL:hover, #btnGeneraOGTLSezione:hover { background: var(--steel-soft); }
+  /* Pulsanti "completi": pieno blu, scritta bianca */
+  #btnGenera, #btnGeneraOGTL { background: var(--steel); color: white; }
+  #btnGenera:hover, #btnGeneraOGTL:hover { background: var(--navy); }
+  /* Pulsanti "per sezione": contorno, sfondo bianco */
+  #btnGeneraSezione, #btnGeneraOGTLSezione { background: #fff; color: var(--steel); border: 1px solid var(--steel); }
+  #btnGeneraSezione:hover, #btnGeneraOGTLSezione:hover { background: var(--steel-soft); }
+
+  .riga-pulsanti-genera { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .gruppo-pulsanti { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .separatore-pulsanti { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+
   #avvisoNonCompilate {
     margin-top: 14px; font-size: 13px; color: #8a6116; white-space: pre-wrap;
     background: var(--amber-soft); border: 1px solid #e9d3ac; border-radius: 6px; padding: 10px 12px;
@@ -284,10 +291,17 @@
   <div class="step-body">
     <div class="step-title">Genera il documento Word</div>
     <div class="panel">
-      <button id="btnGenera">Genera settimanale completo</button>
-      <button id="btnGeneraSezione">Genera settimanale sezione</button>
-      <button id="btnGeneraOGTL">Genera O.G.T.L completo</button>
-      <button id="btnGeneraOGTLSezione">Genera O.G.T.L. sezione</button>
+      <div class="riga-pulsanti-genera">
+        <div class="gruppo-pulsanti">
+          <button id="btnGenera">Genera settimanale completo</button>
+          <button id="btnGeneraOGTL">Genera O.G.T.L completo</button>
+        </div>
+        <div class="separatore-pulsanti"></div>
+        <div class="gruppo-pulsanti">
+          <button id="btnGeneraSezione">Genera settimanale sezione</button>
+          <button id="btnGeneraOGTLSezione">Genera O.G.T.L. sezione</button>
+        </div>
+      </div>
       <div id="avvisoNonCompilate"></div>
     </div>
   </div>
