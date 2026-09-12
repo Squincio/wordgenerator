@@ -374,9 +374,9 @@
     </div>
 
     <div class="campo-form">
-      <label style="font-weight: normal; color: var(--ink-soft);">Sgombero</label>
+      
       <div class="riga-sgombero">
-        <label class="scelta-singola"><input type="checkbox" id="campoSgomberoCura"> A cura Ditta</label>
+        <label class="scelta-singola"><input type="checkbox" id="campoSgomberoCura"> Sgombero a cura Ditta</label>
         <div class="riga-sgombero-destra">
           <label><input type="checkbox" id="sgomberoTerra"> Terra</label>
           <label><input type="checkbox" id="sgomberoMare"> Mare</label>
@@ -496,13 +496,13 @@ function filtraERaggruppa(righeExcel, dateGiorniSettimana) {
   const scartate = [];
 
   righeExcel.forEach(riga => {
-    const dataAttivita = parseDataDesiderata(riga["Data desiderata"]);
+    const dataAttivita = parseDataDesiderata(riga.dataDesiderata);
     if (!dataAttivita) { scartate.push({motivo:"data non valida", riga}); return; }
 
     const indiceGiorno = dateGiorniSettimana.findIndex(d => stessoGiorno(d, dataAttivita));
     if (indiceGiorno === -1) return; // fuori settimana: normale, non è un "errore", si ignora silenziosamente
 
-    const valoreSezione = String(riga["Sezione interessata"] || "").trim();
+    const valoreSezione = String(riga.sezioneInteressata || "").trim();
     const codiceSezione = MAPPING_SEZIONI[valoreSezione];
     if (!codiceSezione) { scartate.push({motivo:"sezione non riconosciuta: '"+valoreSezione+"'", riga}); return; }
 
@@ -512,8 +512,59 @@ function filtraERaggruppa(righeExcel, dateGiorniSettimana) {
   return { risultato, scartate };
 }
 
-// ===================== LETTURA FILE EXCEL =====================
+// ===================== LETTURA FILE EXCEL (riconoscimento colonne per nome, non per posizione) =====================
 let righeExcelGlobali = [];
+
+// Per ogni campo che ci serve, elenco di parole chiave da cercare nel nome della colonna (case-insensitive, sottostringa).
+// Così se una colonna manca, viene semplicemente ignorata (il campo resta vuoto) invece di sfalsare le colonne successive;
+// e se il nome della colonna cambia leggermente (spazi, maiuscole, piccola variazione di wording), viene comunque riconosciuta.
+const DEFINIZIONE_COLONNE = [
+  { chiave: "btr", parole: ["btr", "linea di tiro"] },
+  { chiave: "ditta", parole: ["ditta"] },
+  { chiave: "dataDesiderata", parole: ["data desiderata", "data"] },
+  { chiave: "descrizioneAttivita", parole: ["descrizione"] },
+  { chiave: "tipologia", parole: ["tipologia"] },
+  { chiave: "sezioneInteressata", parole: ["sezione"] }
+];
+
+function trovaIndiciColonne(rigaIntestazione) {
+  const indici = {};
+  const colonneUsate = new Set();
+  DEFINIZIONE_COLONNE.forEach(def => {
+    for (let i = 0; i < rigaIntestazione.length; i++) {
+      if (colonneUsate.has(i)) continue;
+      const testo = normalizzaSpazi(rigaIntestazione[i]).toLowerCase();
+      if (!testo) continue;
+      if (def.parole.some(p => testo.includes(p))) {
+        indici[def.chiave] = i;
+        colonneUsate.add(i);
+        break;
+      }
+    }
+  });
+  return indici;
+}
+
+function costruisciRigheNormalizzate(righeGrezze) {
+  const rigaIntestazione = righeGrezze[0] || [];
+  const indici = trovaIndiciColonne(rigaIntestazione);
+  const righe = [];
+  for (let r = 1; r < righeGrezze.length; r++) {
+    const riga = righeGrezze[r];
+    if (!riga || riga.length === 0) continue;
+    const oggetto = {
+      btr: indici.btr !== undefined ? riga[indici.btr] : undefined,
+      ditta: indici.ditta !== undefined ? riga[indici.ditta] : undefined,
+      dataDesiderata: indici.dataDesiderata !== undefined ? riga[indici.dataDesiderata] : undefined,
+      descrizioneAttivita: indici.descrizioneAttivita !== undefined ? riga[indici.descrizioneAttivita] : undefined,
+      tipologia: indici.tipologia !== undefined ? riga[indici.tipologia] : undefined,
+      sezioneInteressata: indici.sezioneInteressata !== undefined ? riga[indici.sezioneInteressata] : undefined
+    };
+    const tuttiVuoti = Object.values(oggetto).every(v => v === undefined || v === null || String(v).trim() === "");
+    if (!tuttiVuoti) righe.push(oggetto);
+  }
+  return righe;
+}
 
 document.getElementById('fileExcel').addEventListener('change', function(e) {
   const file = e.target.files[0];
@@ -522,7 +573,8 @@ document.getElementById('fileExcel').addEventListener('change', function(e) {
   reader.onload = function(ev) {
     const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array', cellDates:true});
     const foglio = wb.Sheets[wb.SheetNames[0]];
-    righeExcelGlobali = XLSX.utils.sheet_to_json(foglio);
+    const righeGrezze = XLSX.utils.sheet_to_json(foglio, { header: 1, defval: null });
+    righeExcelGlobali = costruisciRigheNormalizzate(righeGrezze);
     aggiornaTutto();
   };
   reader.readAsArrayBuffer(file);
@@ -639,7 +691,7 @@ function anteprimaAttivita(record) {
     return { ditta: record.formData.ditta || "(senza ditta)", testo: record.formData.titolo || record.formData.descrizione || "" };
   }
   const r = record.rigaExcel || {};
-  return { ditta: r["DITTA"] || "(nuova attività)", testo: r["Descrizione Attività"] || "" };
+  return { ditta: r.ditta || "(nuova attività)", testo: r.descrizioneAttivita || "" };
 }
 
 function disegnaGrigliaGiorni() {
@@ -794,7 +846,7 @@ function disegnaAvvisoScartate() {
   if (!datiRaggruppati || datiRaggruppati.scartate.length === 0) { div.textContent = ""; return; }
   let testo = "Righe ignorate durante la lettura:\n";
   datiRaggruppati.scartate.forEach(s => {
-    testo += "- " + s.motivo + " (Ditta: " + (s.riga["DITTA"]||"?") + ")\n";
+    testo += "- " + s.motivo + " (Ditta: " + (s.riga.ditta||"?") + ")\n";
   });
   div.textContent = testo;
 }
@@ -830,12 +882,12 @@ function popolaCampiForm(dati, rigaExcelPerBozza) {
   } else {
     // Precompilo dai dati Excel (se presenti, es. bozza automatica), resto vuoto/default
     const r = rigaExcelPerBozza || {};
-    const tipologiaExcel = normalizzaSpazi(r["Tipologia"]).toUpperCase();
+    const tipologiaExcel = normalizzaSpazi(r.tipologia).toUpperCase();
     document.getElementById('campoTipologia').value = (tipologiaExcel === "AD") ? "AD" : "CT";
-    impostaDitta(r["DITTA"]);
-    document.getElementById('campoTitolo').value = r["Descrizione Attività"] || "";
+    impostaDitta(r.ditta);
+    document.getElementById('campoTitolo').value = r.descrizioneAttivita || "";
     document.getElementById('campoDescrizione').value = "";
-    const btrRilevate = rilevaBtr(r["Btr/Linea di Tiro/commenti"]);
+    const btrRilevate = rilevaBtr(r.btr);
     document.getElementById('campoBtr1').value = btrRilevate.btr1;
     document.getElementById('campoBtr2').value = btrRilevate.btr2;
     document.getElementById('campoSquadraEmergenze').checked = false;
@@ -1147,13 +1199,13 @@ function datiEffettivi(record, elencoNonCompilate) {
   // Fallback: attività mai aperta/compilata nel form, uso una bozza minima (da Excel se disponibile)
   const rigaExcel = record.rigaExcel || {};
   const nomiGiorni = ["LUN","MAR","MER","GIO","VEN"];
-  elencoNonCompilate.push((rigaExcel["DITTA"] || "(nuova attività)") + " — " + NOMI_SEZIONI[record.sezione] + " (" + nomiGiorni[record.giorno] + ")");
-  const tipologiaExcel = normalizzaSpazi(rigaExcel["Tipologia"]).toUpperCase();
-  const btrRilevate = rilevaBtr(rigaExcel["Btr/Linea di Tiro/commenti"]);
+  elencoNonCompilate.push((rigaExcel.ditta || "(nuova attività)") + " — " + NOMI_SEZIONI[record.sezione] + " (" + nomiGiorni[record.giorno] + ")");
+  const tipologiaExcel = normalizzaSpazi(rigaExcel.tipologia).toUpperCase();
+  const btrRilevate = rilevaBtr(rigaExcel.btr);
   return {
     tipologia: (tipologiaExcel === "AD") ? "AD" : "CT",
-    ditta: rigaExcel["DITTA"] || "",
-    titolo: rigaExcel["Descrizione Attività"] || "",
+    ditta: rigaExcel.ditta || "",
+    titolo: rigaExcel.descrizioneAttivita || "",
     descrizione: "",
     btr1: btrRilevate.btr1, btr2: btrRilevate.btr2,
     squadraEmergenze: false, repArtificieri: false, repArmamento: false, repOsservatori: false, sezMetrobalistica: false,
