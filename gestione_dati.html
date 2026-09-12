@@ -218,14 +218,14 @@
   #btnAnnulla { background: #fff; color: var(--ink-soft); border-color: var(--line); }
   #btnAnnulla:hover { background: #f4f5f5; }
 
-  #btnGenera, #btnGeneraSezione {
+  #btnGenera, #btnGeneraSezione, #btnGeneraOGTL, #btnGeneraOGTLSezione {
     padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer;
     font-size: 14px; font-weight: 600; font-family: inherit;
     background: var(--steel); color: white; margin-right: 10px;
   }
-  #btnGenera:hover, #btnGeneraSezione:hover { background: var(--navy); }
-  #btnGeneraSezione { background: #fff; color: var(--steel); border: 1px solid var(--steel); }
-  #btnGeneraSezione:hover { background: var(--steel-soft); }
+  #btnGenera:hover, #btnGeneraSezione:hover, #btnGeneraOGTL:hover, #btnGeneraOGTLSezione:hover { background: var(--navy); }
+  #btnGeneraSezione, #btnGeneraOGTL, #btnGeneraOGTLSezione { background: #fff; color: var(--steel); border: 1px solid var(--steel); }
+  #btnGeneraSezione:hover, #btnGeneraOGTL:hover, #btnGeneraOGTLSezione:hover { background: var(--steel-soft); }
   #avvisoNonCompilate {
     margin-top: 14px; font-size: 13px; color: #8a6116; white-space: pre-wrap;
     background: var(--amber-soft); border: 1px solid #e9d3ac; border-radius: 6px; padding: 10px 12px;
@@ -286,6 +286,8 @@
     <div class="panel">
       <button id="btnGenera">Genera settimanale completo</button>
       <button id="btnGeneraSezione">Genera settimanale sezione</button>
+      <button id="btnGeneraOGTL">Genera O.G.T.L. (5 giorni)</button>
+      <button id="btnGeneraOGTLSezione">Genera O.G.T.L. sezione</button>
       <div id="avvisoNonCompilate"></div>
     </div>
   </div>
@@ -318,6 +320,11 @@
         </select>
         <input type="text" id="campoDittaAltro" placeholder="Nome ditta" style="display:none; margin-top:6px;">
       </div>
+    </div>
+
+    <div class="campo-form">
+      <label>Numero pratica <span style="font-weight:normal; color:var(--ink-soft);">(es. 2026/10 — usato solo per il documento O.G.T.L.)</span></label>
+      <input type="text" id="campoNumeroPratica" placeholder="2026/10">
     </div>
 
     <div class="campo-form">
@@ -676,12 +683,16 @@ function disegnaTabsSezioni() {
 // Il pulsante "Genera settimanale sezione" compare SOLO quando è selezionata esattamente una sezione
 function aggiornaBottoneSezione() {
   const btn = document.getElementById('btnGeneraSezione');
+  const btnOgtl = document.getElementById('btnGeneraOGTLSezione');
   if (sezioniSelezionate.size === 1) {
     const codice = Array.from(sezioniSelezionate)[0];
     btn.style.display = "";
     btn.textContent = "Genera settimanale " + NOMI_SEZIONI[codice];
+    btnOgtl.style.display = "";
+    btnOgtl.textContent = "Genera O.G.T.L. " + NOMI_SEZIONI[codice];
   } else {
     btn.style.display = "none";
+    btnOgtl.style.display = "none";
   }
 }
 
@@ -865,6 +876,7 @@ function popolaCampiForm(dati, rigaExcelPerBozza) {
     document.getElementById('campoTipologia').value = dati.tipologia;
     impostaDitta(dati.ditta);
     document.getElementById('campoTitolo').value = dati.titolo;
+    document.getElementById('campoNumeroPratica').value = dati.numeroPratica || "";
     document.getElementById('campoDescrizione').value = dati.descrizione;
     document.getElementById('campoBtr1').value = dati.btr1 || "";
     document.getElementById('campoBtr2').value = dati.btr2 || "";
@@ -886,6 +898,7 @@ function popolaCampiForm(dati, rigaExcelPerBozza) {
     document.getElementById('campoTipologia').value = (tipologiaExcel === "AD") ? "AD" : "CT";
     impostaDitta(r.ditta);
     document.getElementById('campoTitolo').value = r.descrizioneAttivita || "";
+    document.getElementById('campoNumeroPratica').value = "";
     document.getElementById('campoDescrizione').value = "";
     const btrRilevate = rilevaBtr(r.btr);
     document.getElementById('campoBtr1').value = btrRilevate.btr1;
@@ -965,6 +978,7 @@ document.getElementById('btnSalva').onclick = function() {
     tipologia: document.getElementById('campoTipologia').value,
     ditta: leggiDitta(),
     titolo: document.getElementById('campoTitolo').value,
+    numeroPratica: document.getElementById('campoNumeroPratica').value,
     descrizione: document.getElementById('campoDescrizione').value,
     btr1: document.getElementById('campoBtr1').value,
     btr2: document.getElementById('campoBtr2').value,
@@ -1018,7 +1032,7 @@ disegnaGrigliaGiorni();
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   WidthType, BorderStyle, ShadingType, VerticalAlign, AlignmentType,
-  HeightRule, TabStopType, PageOrientation
+  HeightRule, TabStopType, PageOrientation, ImageRun
 } = docx;
 
 const LARGHEZZE_COLONNE = [568, 425, 2069, 2070, 2098, 1985, 2126];
@@ -1206,6 +1220,7 @@ function datiEffettivi(record, elencoNonCompilate) {
     tipologia: (tipologiaExcel === "AD") ? "AD" : "CT",
     ditta: rigaExcel.ditta || "",
     titolo: rigaExcel.descrizioneAttivita || "",
+    numeroPratica: "",
     descrizione: "",
     btr1: btrRilevate.btr1, btr2: btrRilevate.btr2,
     squadraEmergenze: false, repArtificieri: false, repArmamento: false, repOsservatori: false, sezMetrobalistica: false,
@@ -1341,6 +1356,252 @@ document.getElementById('btnGenera').onclick = function() { generaDocumento(true
 document.getElementById('btnGeneraSezione').onclick = function() {
   if (sezioniSelezionate.size !== 1) return; // il pulsante non dovrebbe nemmeno essere visibile in questo caso
   generaDocumento(false, Array.from(sezioniSelezionate)[0]);
+};
+
+// ===================== GENERAZIONE O.G.T.L. (documento giornaliero, uno per ciascuno dei 5 giorni) =====================
+
+// Valori di default per i dati giornalieri globali non ancora gestiti da un form dedicato (da editare a mano in Word per ora)
+const OGTL_DEFAULT = {
+  orario: "08:00/18:00",
+  sgomberoPoligono: "____",
+  vedette: "____",
+  motovedette: "____",
+  mezzi: "Rep. Armamento: ____; Rep. Osservatori: ____; Rep. Artificieri: ____; Sez. Metrobalistica: ____; Sez. Impianti: ____; CSSN: ____; SST: ____; Servizio Sanitario: ____; Squadra emergenze: ____; Sez. Servizi Generali: ____."
+};
+
+let prossimoNumeroOGTL = 1; // valore di partenza; viene chiesta conferma/modifica ogni volta prima di generare
+
+function formatDataPuntata(d) {
+  return String(d.getDate()).padStart(2,'0') + "." + String(d.getMonth()+1).padStart(2,'0') + "." + d.getFullYear();
+}
+
+function suffissoPratica(tipologia) {
+  return tipologia === "AD" ? "AD-SP" : "CT_SP";
+}
+
+function codicePraticaTesto(dati) {
+  const numero = (dati.numeroPratica || "").trim();
+  if (!numero) return "";
+  const numeroFormattato = numero.replace(/\//g, "_");
+  let testo = "(" + numeroFormattato + "/" + suffissoPratica(dati.tipologia);
+  if (dati.pos && dati.pos.trim()) testo += " – POS n. " + dati.pos.trim();
+  testo += ") ";
+  return testo;
+}
+
+// Costruisce il paragrafo O.G.T.L. per una singola attività (stessa sostanza del settimanale, disposta come testo continuo)
+function componiParagrafoOGTL(nomeSezione, dati) {
+  const children = [];
+  children.push(new TextRun({ text: nomeSezione + ": ", bold: true, size: 20, font: "Times New Roman" }));
+  children.push(new TextRun({ text: codicePraticaTesto(dati) + `${dati.tipologia} ${dati.ditta} – ${dati.titolo}`.trim() + ". ", bold: true, size: 20, font: "Times New Roman" }));
+
+  if (dati.descrizione && dati.descrizione.trim()) {
+    children.push(new TextRun({ text: dati.descrizione.trim() + " ", size: 20, font: "Times New Roman" }));
+  }
+  if (dati.squadraEmergenze === true) {
+    children.push(new TextRun({ text: "Squadra emergenze: ", underline: {}, size: 20, font: "Times New Roman" }));
+    children.push(new TextRun({ text: "a disposizione. ", size: 20, font: "Times New Roman" }));
+  }
+  Object.keys(ETICHETTE_REP).filter(k => dati[k] === true).forEach(k => {
+    children.push(new TextRun({ text: ETICHETTE_REP[k] + ": ", underline: {}, size: 20, font: "Times New Roman" }));
+    children.push(new TextRun({ text: "in btr. ", size: 20, font: "Times New Roman" }));
+  });
+  if ((dati.pos && dati.pos.trim()) || (dati.sic && dati.sic.trim())) {
+    let testo = "";
+    if (dati.sic && dati.sic.trim()) testo += "SIC = " + dati.sic.trim() + ". ";
+    if (testo) children.push(new TextRun({ text: testo, bold: true, size: 20, font: "Times New Roman" }));
+  }
+
+  const btr1 = (dati.btr1||"").trim(), btr2 = (dati.btr2||"").trim();
+  const testoBtr = (btr1 && btr2) ? (btr1+" vs "+btr2) : (btr1 || btr2);
+  if (testoBtr) {
+    children.push(new TextRun({ text: "\tBtr. " + testoBtr, bold: true, underline: {}, size: 20, font: "Times New Roman" }));
+  }
+
+  return new Paragraph({
+    alignment: AlignmentType.JUSTIFIED,
+    tabStops: [{ type: TabStopType.RIGHT, position: 10490 }],
+    spacing: { after: 120 },
+    children: children
+  });
+}
+
+function generaDocumentoOGTL(data, numeroOGTL, logoBytes, codiceSezioneSingola) {
+  const elencoNonCompilate = [];
+  const paragrafiAttivita = [];
+  const modalitaCompleta = !codiceSezioneSingola;
+
+  const righeDaUsare = modalitaCompleta ? RIGHE_TABELLA.filter(r => r.codice) : RIGHE_TABELLA.filter(r => r.codice === codiceSezioneSingola);
+
+  righeDaUsare.forEach(riga => {
+    const giornoIndex = dateGiorniCorrenti.findIndex(d => stessoGiorno(d, data));
+    const lista = recordsPerCella(riga.codice, giornoIndex).map(r => datiEffettivi(r, elencoNonCompilate));
+    lista.forEach(dati => {
+      paragrafiAttivita.push(componiParagrafoOGTL(NOMI_SEZIONI[riga.codice], dati));
+    });
+  });
+
+  // Larghezza tabella intestazione: 18,5 cm (1 cm = 566,93 dxa)
+  const LARGHEZZA_TABELLA_INTEST = Math.round(18.5 * 566.9291339);
+  const LARGHEZZA_COLONNA_LOGO = 850;
+  const LARGHEZZA_COLONNA_TESTO = LARGHEZZA_TABELLA_INTEST - LARGHEZZA_COLONNA_LOGO;
+
+  const cellaLogo = function(rowSpanInfo, includiImmagine) {
+    return new TableCell({
+      verticalMerge: rowSpanInfo,
+      verticalAlign: VerticalAlign.CENTER,
+      width: { size: LARGHEZZA_COLONNA_LOGO, type: WidthType.DXA },
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: (includiImmagine && logoBytes) ? [ new ImageRun({ data: logoBytes, transformation: { width: 55, height: 50 } }) ] : []
+        })
+      ]
+    });
+  };
+
+  const tabellaIntestazione = new Table({
+    width: { size: LARGHEZZA_TABELLA_INTEST, type: WidthType.DXA },
+    columnWidths: [LARGHEZZA_COLONNA_LOGO, LARGHEZZA_COLONNA_TESTO],
+    borders: BORDO,
+    rows: [
+      new TableRow({ children: [
+        cellaLogo("restart", true),
+        new TableCell({ width: { size: LARGHEZZA_COLONNA_TESTO, type: WidthType.DXA }, children: [
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "UFFICIO TECNICO TERRITORIALE ARMAMENTI TERRESTRI- NETTUNO", bold: true, size: 22, font: "Times New Roman" }) ] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "SERVIZIO POLIGONO DI NETTUNO", bold: true, size: 22, font: "Times New Roman" }) ] })
+        ] })
+      ] }),
+      new TableRow({ children: [
+        cellaLogo("continue", false),
+        new TableCell({ width: { size: LARGHEZZA_COLONNA_TESTO, type: WidthType.DXA }, children: [
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "ORDINE GIORNALIERO DEI TIRI E LAVORI DEL " + formatDataPuntata(data), bold: true, size: 22, font: "Times New Roman" }) ] })
+        ] })
+      ] })
+    ]
+  });
+
+  const rigaNumeroOrario = new Paragraph({
+    tabStops: [{ type: TabStopType.RIGHT, position: 10490 }],
+    spacing: { before: 200, after: 200 },
+    children: [ new TextRun({ text: "O.G.T.L. N. " + numeroOGTL + "\t" + OGTL_DEFAULT.orario, bold: true, size: 20, font: "Times New Roman" }) ]
+  });
+
+  const rigaSgombero = new Paragraph({
+    tabStops: [{ type: TabStopType.RIGHT, position: 10490 }],
+    spacing: { after: 60 },
+    children: [
+      new TextRun({ text: "SGOMBERO POLIGONO: ", bold: true, underline: {}, size: 20, font: "Times New Roman" }),
+      new TextRun({ text: OGTL_DEFAULT.sgomberoPoligono, bold: true, size: 20, font: "Times New Roman" }),
+      new TextRun({ text: "\tVEDETTE: ", bold: true, underline: {}, size: 20, font: "Times New Roman" }),
+      new TextRun({ text: OGTL_DEFAULT.vedette, bold: true, size: 20, font: "Times New Roman" })
+    ]
+  });
+  const rigaMotovedette = new Paragraph({
+    alignment: AlignmentType.RIGHT,
+    spacing: { after: 200 },
+    children: [
+      new TextRun({ text: "MOTOVEDETTE: ", bold: true, underline: {}, size: 20, font: "Times New Roman" }),
+      new TextRun({ text: OGTL_DEFAULT.motovedette, bold: true, size: 20, font: "Times New Roman" })
+    ]
+  });
+  const rigaMezzi = new Paragraph({
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { after: 300 },
+    children: [ new TextRun({ text: OGTL_DEFAULT.mezzi, size: 20, font: "Times New Roman" }) ]
+  });
+
+  const rigaVisto = new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "VISTO, si approva:", size: 20, font: "Times New Roman" }) ] });
+  const rigaViceDirettore = new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "IL VICE DIRETTORE", size: 20, font: "Times New Roman" }) ] });
+  const rigaNomeVice = new Paragraph({ alignment: AlignmentType.CENTER, children: [ new TextRun({ text: "Ten. Col. ing. Francesco RUTIGLIANO", size: 20, font: "Times New Roman" }) ] });
+
+  // I blocchi globali (sgombero/vedette/motovedette/mezzi) hanno senso solo nel documento completo, non nell'estratto per sezione
+  const blocchiGlobali = modalitaCompleta ? [rigaSgombero, rigaMotovedette, rigaMezzi] : [];
+
+  const doc = new Document({
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT },
+          margin: { top: 0, bottom: 180, left: 709, right: 707 }
+        }
+      },
+      children: [
+        tabellaIntestazione,
+        rigaNumeroOrario,
+        ...paragrafiAttivita,
+        ...blocchiGlobali,
+        rigaVisto, rigaViceDirettore, rigaNomeVice
+      ]
+    }]
+  });
+
+  return { doc, elencoNonCompilate };
+}
+
+let logoBytesCache = null;
+async function ottieniLogo() {
+  if (logoBytesCache) return logoBytesCache;
+  try {
+    const risposta = await fetch('logo.png');
+    const buffer = await risposta.arrayBuffer();
+    logoBytesCache = new Uint8Array(buffer);
+  } catch (e) {
+    console.warn("Logo non trovato (logo.png) - il documento verrà generato senza logo.", e);
+    logoBytesCache = null;
+  }
+  return logoBytesCache;
+}
+
+async function avviaGenerazioneOGTL(codiceSezioneSingola) {
+  if (registroAttivita.length === 0 && (!righeExcelGlobali || righeExcelGlobali.length === 0)) {
+    alert("Carica prima il file Excel (passaggio 1).");
+    return;
+  }
+
+  const rispostaStr = window.prompt(
+    "Numero O.G.T.L. di partenza (per il LUNEDÌ — i giorni successivi saranno numerati in sequenza):",
+    prossimoNumeroOGTL
+  );
+  if (rispostaStr === null) return; // annullato
+  const numeroPartenza = parseInt(rispostaStr, 10);
+  if (isNaN(numeroPartenza)) { alert("Numero non valido."); return; }
+
+  const logoBytes = await ottieniLogo();
+  const elencoNonCompilateComplessivo = [];
+  const suffissoFile = codiceSezioneSingola ? "_" + codiceSezioneSingola : "";
+
+  dateGiorniCorrenti.forEach((data, i) => {
+    const numeroOGTL = numeroPartenza + i;
+    const { doc, elencoNonCompilate } = generaDocumentoOGTL(data, numeroOGTL, logoBytes, codiceSezioneSingola);
+    elencoNonCompilateComplessivo.push(...elencoNonCompilate);
+
+    // Piccolo ritardo scaglionato tra un download e l'altro, per evitare che il browser blocchi download multipli simultanei
+    setTimeout(function() {
+      Packer.toBlob(doc).then(function(blob) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "OGTL_" + numeroOGTL + "_del_" + formatDataPuntata(data).replace(/\./g, "-") + suffissoFile + ".docx";
+        a.click();
+      });
+    }, i * 400);
+  });
+
+  setTimeout(function() {
+    prossimoNumeroOGTL = numeroPartenza + 5; // per la settimana successiva
+    const divAvviso = document.getElementById('avvisoNonCompilate');
+    if (elencoNonCompilateComplessivo.length > 0) {
+      const uniche = [...new Set(elencoNonCompilateComplessivo)];
+      divAvviso.textContent = "Attenzione: le seguenti attività non erano state compilate nel form e sono state inserite con i soli dati grezzi dell'Excel:\n" +
+        uniche.map(x => "- " + x).join("\n");
+    }
+  }, dateGiorniCorrenti.length * 400 + 200);
+}
+
+document.getElementById('btnGeneraOGTL').onclick = function() { avviaGenerazioneOGTL(null); };
+document.getElementById('btnGeneraOGTLSezione').onclick = function() {
+  if (sezioniSelezionate.size !== 1) return; // il pulsante non dovrebbe nemmeno essere visibile in questo caso
+  avviaGenerazioneOGTL(Array.from(sezioniSelezionate)[0]);
 };
 </script>
 
