@@ -406,10 +406,24 @@
 
     <div class="campo-form">
       <label class="scelta-singola"><input type="checkbox" id="campoRepOsservatori"> Rep. Osservatori in btr</label>
+      <input type="text" id="campoRepOsservatoriNota" placeholder="Nota (facoltativa)" style="display:none; margin-top:6px;">
     </div>
 
     <div class="campo-form">
-      <label class="scelta-singola"><input type="checkbox" id="campoSezMetrobalistica"> Sez. Metrobalistica in btr</label>
+      <label class="scelta-singola"><input type="checkbox" id="campoSezMetrobalistica"> Sez. Metrobalistica</label>
+      <div id="rigaMetrobalistica" class="scelta-radio" style="display:none; margin-top:6px;">
+        <label><input type="checkbox" id="campoMetrobalisticaV0"> V0</label>
+        <label><input type="checkbox" id="campoMetrobalisticaCelerita"> Celerità di tiro</label>
+      </div>
+    </div>
+
+    <div class="campo-form">
+      <label class="scelta-singola"><input type="checkbox" id="campoSezImpianti"> Sez. Impianti</label>
+      <div id="rigaSezImpianti" style="display:none; margin-top:6px;">
+        <label style="font-weight:normal; font-size:12px; color:var(--ink-soft);">Carrello in btr a T = </label>
+        <input type="text" id="campoSezImpiantiTemp" placeholder="es. 20" style="width:80px; display:inline-block; vertical-align:middle;">
+        <span style="font-size:12px; color:var(--ink-soft);">°C</span>
+      </div>
     </div>
 
     <div class="campo-form">
@@ -938,7 +952,12 @@ function popolaCampiForm(dati, rigaExcelPerBozza) {
     document.getElementById('campoRepArtificieri').checked = !!dati.repArtificieri;
     document.getElementById('campoRepArmamento').checked = !!dati.repArmamento;
     document.getElementById('campoRepOsservatori').checked = !!dati.repOsservatori;
+    document.getElementById('campoRepOsservatoriNota').value = dati.repOsservatoriNota || "";
     document.getElementById('campoSezMetrobalistica').checked = !!dati.sezMetrobalistica;
+    document.getElementById('campoMetrobalisticaV0').checked = !!dati.metrobalisticaV0;
+    document.getElementById('campoMetrobalisticaCelerita').checked = !!dati.metrobalisticaCelerita;
+    document.getElementById('campoSezImpianti').checked = !!dati.sezImpianti;
+    document.getElementById('campoSezImpiantiTemp').value = dati.sezImpiantiTemp || "";
     document.getElementById('campoPos').value = dati.pos;
     document.getElementById('campoSic').value = dati.sic;
     document.getElementById('campoAssettiSanitari').checked = !!dati.assettiSanitari;
@@ -961,7 +980,12 @@ function popolaCampiForm(dati, rigaExcelPerBozza) {
     document.getElementById('campoRepArtificieri').checked = false;
     document.getElementById('campoRepArmamento').checked = false;
     document.getElementById('campoRepOsservatori').checked = false;
+    document.getElementById('campoRepOsservatoriNota').value = "";
     document.getElementById('campoSezMetrobalistica').checked = false;
+    document.getElementById('campoMetrobalisticaV0').checked = false;
+    document.getElementById('campoMetrobalisticaCelerita').checked = false;
+    document.getElementById('campoSezImpianti').checked = false;
+    document.getElementById('campoSezImpiantiTemp').value = "";
     document.getElementById('campoPos').value = "";
     document.getElementById('campoSic').value = "";
     document.getElementById('campoAssettiSanitari').checked = false;
@@ -969,6 +993,11 @@ function popolaCampiForm(dati, rigaExcelPerBozza) {
     document.getElementById('sgomberoMare').checked = false;
     document.getElementById('campoSgomberoCura').checked = false;
   }
+
+  // Sincronizzo la visibilità dei blocchi che compaiono solo se la relativa casella è spuntata
+  document.getElementById('campoRepOsservatoriNota').style.display = document.getElementById('campoRepOsservatori').checked ? "block" : "none";
+  document.getElementById('rigaMetrobalistica').style.display = document.getElementById('campoSezMetrobalistica').checked ? "flex" : "none";
+  document.getElementById('rigaSezImpianti').style.display = document.getElementById('campoSezImpianti').checked ? "block" : "none";
 }
 
 function apriModaleEsistente(record) {
@@ -1019,6 +1048,16 @@ document.getElementById('campoDittaSelect').addEventListener('change', function(
   document.getElementById('campoDittaAltro').style.display = (this.value === "altro") ? "block" : "none";
 });
 
+document.getElementById('campoRepOsservatori').addEventListener('change', function() {
+  document.getElementById('campoRepOsservatoriNota').style.display = this.checked ? "block" : "none";
+});
+document.getElementById('campoSezMetrobalistica').addEventListener('change', function() {
+  document.getElementById('rigaMetrobalistica').style.display = this.checked ? "flex" : "none";
+});
+document.getElementById('campoSezImpianti').addEventListener('change', function() {
+  document.getElementById('rigaSezImpianti').style.display = this.checked ? "block" : "none";
+});
+
 function chiudiModale() {
   document.getElementById('overlayModale').classList.remove('aperto');
   recordAperto = null;
@@ -1040,7 +1079,12 @@ document.getElementById('btnSalva').onclick = function() {
     repArtificieri: document.getElementById('campoRepArtificieri').checked,
     repArmamento: document.getElementById('campoRepArmamento').checked,
     repOsservatori: document.getElementById('campoRepOsservatori').checked,
+    repOsservatoriNota: document.getElementById('campoRepOsservatoriNota').value,
     sezMetrobalistica: document.getElementById('campoSezMetrobalistica').checked,
+    metrobalisticaV0: document.getElementById('campoMetrobalisticaV0').checked,
+    metrobalisticaCelerita: document.getElementById('campoMetrobalisticaCelerita').checked,
+    sezImpianti: document.getElementById('campoSezImpianti').checked,
+    sezImpiantiTemp: document.getElementById('campoSezImpiantiTemp').value,
     pos: document.getElementById('campoPos').value,
     sic: document.getElementById('campoSic').value,
     assettiSanitari: document.getElementById('campoAssettiSanitari').checked,
@@ -1160,12 +1204,35 @@ const RIGHE_TABELLA = [
 ];
 
 // ===================== COMPOSIZIONE TESTO CELLA (regole di formattazione) =====================
-const ETICHETTE_REP = {
-  repArtificieri: "Rep. Artificieri",
-  repArmamento: "Rep. Armamento",
-  repOsservatori: "Rep. Osservatori",
-  sezMetrobalistica: "Sez. Metrobalistica"
-};
+// Determina quali segmenti "Rep./Sez.: ..." vanno scritti nel testo (usata sia dal settimanale che dall'O.G.T.L.)
+function segmentiRepSez(dati) {
+  const elenco = [];
+  if (dati.repArtificieri === true) {
+    elenco.push({ label: "Rep. Artificieri:", testo: " in btr." });
+  }
+  if (dati.repArmamento === true) {
+    elenco.push({ label: "Rep. Armamento:", testo: " in btr." });
+  }
+  if (dati.repOsservatori === true) {
+    let testo = " in btr.";
+    if (dati.repOsservatoriNota && dati.repOsservatoriNota.trim()) {
+      testo += " " + terminaFrase(dati.repOsservatoriNota.trim());
+    }
+    elenco.push({ label: "Rep. Osservatori:", testo });
+  }
+  if (dati.sezMetrobalistica === true && (dati.metrobalisticaV0 || dati.metrobalisticaCelerita)) {
+    const parti = [];
+    if (dati.metrobalisticaV0) parti.push("V0");
+    if (dati.metrobalisticaCelerita) parti.push("celerità di tiro");
+    elenco.push({ label: "Sez. Metrobalistica:", testo: " rilievo " + parti.join(" e ") + "." });
+  }
+  if (dati.sezImpianti === true) {
+    const temp = (dati.sezImpiantiTemp || "").trim();
+    elenco.push({ label: "Sez. Impianti:", testo: " carrello in btr a T=" + (temp || "__") + "°C." });
+  }
+  return elenco;
+}
+
 const DIM_TESTO_CELLA = 13; // 6.5pt
 const FONT_CELLA = "Times New Roman";
 
@@ -1193,13 +1260,13 @@ function componiAttivita(dati) {
     contenutoRiga2 = contenutoRiga2.concat(nuoviRuns);
   }
   if (dati.descrizione && dati.descrizione.trim()) {
-    aggiungiSegmento([ runCella(dati.descrizione.trim()) ]);
+    aggiungiSegmento([ runCella(terminaFrase(dati.descrizione.trim())) ]);
   }
   if (dati.squadraEmergenze === true) {
     aggiungiSegmento([ runCella("Squadra emergenze:", { underline: true }), runCella(" a disposizione.") ]);
   }
-  Object.keys(ETICHETTE_REP).filter(k => dati[k] === true).forEach(k => {
-    aggiungiSegmento([ runCella(ETICHETTE_REP[k] + ":", { underline: true }), runCella(" in btr.") ]);
+  segmentiRepSez(dati).forEach(seg => {
+    aggiungiSegmento([ runCella(seg.label, { underline: true }), runCella(seg.testo) ]);
   });
   if (contenutoRiga2.length > 0) {
     paragrafi.push(new Paragraph({ children: contenutoRiga2 }));
@@ -1209,14 +1276,14 @@ function componiAttivita(dati) {
     let testo = "";
     if (dati.pos && dati.pos.trim()) testo += "POS = " + dati.pos.trim();
     if (dati.sic && dati.sic.trim()) testo += (testo ? " - " : "") + "SIC = " + dati.sic.trim();
-    paragrafi.push(new Paragraph({ children: [ runCella(testo, { bold: true }) ] }));
+    paragrafi.push(new Paragraph({ children: [ runCella(terminaFrase(testo), { bold: true }) ] }));
   }
 
   const btr1 = (dati.btr1 || "").trim();
   const btr2 = (dati.btr2 || "").trim();
   const testoBtr = (btr1 && btr2) ? (btr1 + " vs " + btr2) : (btr1 || btr2);
   if (testoBtr) {
-    paragrafi.push(new Paragraph({ children: [ runCella("Btr " + testoBtr, { bold: true }) ] }));
+    paragrafi.push(new Paragraph({ alignment: AlignmentType.RIGHT, children: [ runCella("Btr " + testoBtr, { bold: true }) ] }));
   }
 
   const sanitariPresente = dati.assettiSanitari === true;
@@ -1277,7 +1344,9 @@ function datiEffettivi(record, elencoNonCompilate) {
     numeroPratica: "",
     descrizione: "",
     btr1: btrRilevate.btr1, btr2: btrRilevate.btr2,
-    squadraEmergenze: false, repArtificieri: false, repArmamento: false, repOsservatori: false, sezMetrobalistica: false,
+    squadraEmergenze: false, repArtificieri: false, repArmamento: false, repOsservatori: false, repOsservatoriNota: "",
+    sezMetrobalistica: false, metrobalisticaV0: false, metrobalisticaCelerita: false,
+    sezImpianti: false, sezImpiantiTemp: "",
     pos: "", sic: "", assettiSanitari: false, sgomberoTerra: false, sgomberoMare: false, sgomberoCura: false
   };
 }
@@ -1456,9 +1525,9 @@ function componiParagrafoOGTL(nomeSezione, dati) {
     children.push(new TextRun({ text: "Squadra emergenze: ", underline: {}, size: 20, font: "Times New Roman" }));
     children.push(new TextRun({ text: "a disposizione. ", size: 20, font: "Times New Roman" }));
   }
-  Object.keys(ETICHETTE_REP).filter(k => dati[k] === true).forEach(k => {
-    children.push(new TextRun({ text: ETICHETTE_REP[k] + ": ", underline: {}, size: 20, font: "Times New Roman" }));
-    children.push(new TextRun({ text: "in btr. ", size: 20, font: "Times New Roman" }));
+  segmentiRepSez(dati).forEach(seg => {
+    children.push(new TextRun({ text: seg.label, underline: {}, size: 20, font: "Times New Roman" }));
+    children.push(new TextRun({ text: seg.testo + " ", size: 20, font: "Times New Roman" }));
   });
   if ((dati.pos && dati.pos.trim()) || (dati.sic && dati.sic.trim())) {
     let testo = "";
