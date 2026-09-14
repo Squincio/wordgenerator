@@ -356,16 +356,43 @@
       <div class="riga-btr-vs">
         <select id="campoBtr1">
           <option value="">— nessuna —</option>
+          <option value="Agostoni">Agostoni</option>
+          <option value="Biancardi">Biancardi</option>
+          <option value="Bianchi">Bianchi</option>
+          <option value="Braccialini">Braccialini</option>
           <option value="Cavalli">Cavalli</option>
-          <option value="Ronca">Ronca</option>
+          <option value="Ederle">Ederle</option>
+          <option value="El Alamein">El Alamein</option>
+          <option value="Filangeri">Filangeri</option>
+          <option value="Fuscardi">Fuscardi</option>
+          <option value="Grillo">Grillo</option>
+          <option value="Grillo st.">Grillo st.</option>
+          <option value="Grottacce">Grottacce</option>
+          <option value="Impianti">Impianti</option>
+          <option value="Impianti fissi">Impianti fissi</option>
+          <option value="Leonardo">Leonardo</option>
+          <option value="Leonardo av.">Leonardo av.</option>
           <option value="Parodi">Parodi</option>
+          <option value="Ronca">Ronca</option>
+          <option value="Ronca av.">Ronca av.</option>
+          <option value="S.Robert">S.Robert</option>
+          <option value="Sala Conferenze">Sala Conferenze</option>
+          <option value="Siacci">Siacci</option>
+          <option value="Sollier">Sollier</option>
+          <option value="Torre di caduta">Torre di caduta</option>
         </select>
         <span class="testo-vs">vs</span>
         <select id="campoBtr2">
           <option value="">— nessuna —</option>
-          <option value="Cavalli">Cavalli</option>
-          <option value="Ronca">Ronca</option>
-          <option value="Parodi">Parodi</option>
+          <option value="Bianchini">Bianchini</option>
+          <option value="Bottego Bunker">Bottego Bunker</option>
+          <option value="Bottego Terrapieno">Bottego Terrapieno</option>
+          <option value="Grillo Bunker">Grillo Bunker</option>
+          <option value="Grillo Terrapieno">Grillo Terrapieno</option>
+          <option value="Grue Bunker">Grue Bunker</option>
+          <option value="Grue Terrapieno">Grue Terrapieno</option>
+          <option value="Masotto">Masotto</option>
+          <option value="Terrapieno BM">Terrapieno BM</option>
         </select>
       </div>
     </div>
@@ -877,12 +904,25 @@ function disegnaAvvisoScartate() {
 }
 
 // ===================== GESTIONE MODALE FORM =====================
-const BTR_CONOSCIUTE = ["Cavalli", "Ronca", "Parodi"];
+const BTR1_OPZIONI = [
+  "Agostoni","Biancardi","Bianchi","Braccialini","Cavalli","Ederle","El Alamein","Filangeri",
+  "Fuscardi","Grillo","Grillo st.","Grottacce","Impianti","Impianti fissi","Leonardo","Leonardo av.",
+  "Parodi","Ronca","Ronca av.","S.Robert","Sala Conferenze","Siacci","Sollier","Torre di caduta"
+];
+const BTR2_OPZIONI = [
+  "Bianchini","Bottego Bunker","Bottego Terrapieno","Grillo Bunker","Grillo Terrapieno",
+  "Grue Bunker","Grue Terrapieno","Masotto","Terrapieno BM"
+];
 
 function rilevaBtr(testoExcel) {
-  const testo = normalizzaSpazi(testoExcel);
-  const trovate = BTR_CONOSCIUTE.filter(b => testo.toLowerCase().includes(b.toLowerCase()));
-  return { btr1: trovate[0] || "", btr2: trovate[1] || "" };
+  const testo = normalizzaSpazi(testoExcel).toLowerCase();
+  // Cerco la corrispondenza più lunga (es. "Grillo Bunker" prima di "Grillo") per evitare falsi positivi parziali
+  const trovaMigliore = (lista) => {
+    const corrispondenze = lista.filter(voce => testo.includes(voce.toLowerCase()));
+    corrispondenze.sort((a, b) => b.length - a.length);
+    return corrispondenze[0] || "";
+  };
+  return { btr1: trovaMigliore(BTR1_OPZIONI), btr2: trovaMigliore(BTR2_OPZIONI) };
 }
 
 function popolaCampiForm(dati, rigaExcelPerBozza) {
